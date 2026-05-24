@@ -13,6 +13,7 @@ import CrimsonCitadel from './pages/CrimsonCitadel';
 import Blacksmith from './pages/Blacksmith';
 import Marketplace from './pages/Marketplace';
 import AuctionHouse from './pages/AuctionHouse';
+import CharacterCreation from './pages/CharacterCreation';
 
 const Home = () => (
   <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-fade-in">
@@ -38,6 +39,8 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/create-character" element={<CharacterCreation />} />
+          
           <Route path="/play" element={<GameLayout />}>
             <Route index element={<Home />} />
             <Route path="profile" element={<Profile />} />

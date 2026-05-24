@@ -17,7 +17,7 @@ export const WORLD_LOCATIONS: POI[] = [
     type: 'city',
     x: 51,
     y: 50,
-    description: 'The shining capital of Aethelgard. A bastion of safety, commerce, and guild activity.',
+    description: 'The shining capital of Oakhaven. A bastion of safety, commerce, and guild activity.',
     dangerLevel: 1,
   },
   {

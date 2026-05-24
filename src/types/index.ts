@@ -1,8 +1,12 @@
 export type Location = string;
+export type CharacterClass = 'warrior' | 'rogue' | 'mage';
+export type Gender = 'male' | 'female';
 
 export interface Profile {
   id: string;
   username: string;
+  character_class: CharacterClass;
+  gender: Gender;
   custom_title: string;
   active_theme: string;
   gold: number;
