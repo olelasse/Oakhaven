@@ -47,7 +47,7 @@ export default function Landing() {
         
         {/* Navigation */}
         <header className="p-6 flex justify-between items-center max-w-6xl w-full mx-auto">
-          <h1 className="text-3xl font-cinzel text-amber-500 font-bold tracking-widest drop-shadow-md">AETHELGARD</h1>
+          <h1 className="text-3xl font-cinzel text-amber-500 font-bold tracking-widest drop-shadow-md">OAKHAVEN</h1>
         </header>
 
         {/* Hero Section */}
