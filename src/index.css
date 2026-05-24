@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme {
+  --color-medieval-dark: #1c1917;
+  --color-medieval-darker: #0c0a09;
+  --color-medieval-parchment: #fde68a;
+  --color-medieval-parchment-light: #fef3c7;
+  --color-medieval-sepia: #78350f;
+  --color-medieval-gold: #b45309;
+  --color-medieval-gold-light: #d97706;
+
+  --font-medieval: "MedievalSharp", cursive;
+  --font-cinzel: "Cinzel", serif;
+  --font-sans: "Inter", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-stone-950 text-stone-300 font-sans min-h-screen m-0 p-0 overflow-x-hidden;
+    background-image: radial-gradient(circle at center, #1c1917 0%, #0c0a09 100%);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-cinzel text-amber-500 font-bold tracking-wider;
+  }
+}
+
+@layer utilities {
+  .bg-parchment {
+    @apply bg-[#e6d5b8] text-stone-900;
+    box-shadow: inset 0 0 40px rgba(120, 53, 15, 0.4);
+    border: 2px solid #b45309;
+  }
+  
+  .border-gold {
+    @apply border-[#b45309];
+  }
+  
+  .text-gold {
+    @apply text-[#b45309];
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-stone-950;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-stone-800 rounded-full border border-stone-700;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-amber-900;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 1s ease-in-out;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
