@@ -55,6 +55,23 @@ export const enemies: Record<string, EnemyTemplate> = {
       { item_id: 'steel_longsword', chance: 0.02, min_quantity: 1, max_quantity: 1 }
     ],
     image_url: '/images/enemies/bandit_scout.png'
+  },
+  'bandit_king': {
+    id: 'bandit_king',
+    name: 'Bandit King',
+    description: 'A ruthless warlord leading the rogue factions. Heavily armored and dangerous.',
+    level: 5,
+    max_hp: 150,
+    base_damage: 18,
+    defense: 10,
+    xp_reward: 150,
+    min_gold: 50,
+    max_gold: 150,
+    loot_table: [
+      { item_id: 'steel_longsword', chance: 0.3, min_quantity: 1, max_quantity: 1 },
+      { item_id: 'minor_health_potion', chance: 1.0, min_quantity: 2, max_quantity: 5 }
+    ],
+    image_url: '/images/enemies/bandit_king.png'
   }
 };
 

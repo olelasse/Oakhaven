@@ -13,7 +13,7 @@ interface CombatLog {
 export default function Combat() {
   const { enemyId } = useParams();
   const navigate = useNavigate();
-  const { profile, inventory, takeDamage, getAttackDamage, addGold, removeGold, addXp, consumeItem, spendEnergy, changeLocation, addItemToInventory } = useGame();
+  const { profile, inventory, takeDamage, getAttackDamage, addGold, removeGold, addXp, consumeItem, spendEnergy, changeLocation, addItemToInventory, incrementDailyQuest } = useGame();
   
   const [enemy] = useState(() => enemyId ? getEnemyTemplate(enemyId) : undefined);
   const [enemyHp, setEnemyHp] = useState(enemy ? enemy.max_hp : 0);
@@ -71,13 +71,19 @@ export default function Combat() {
       addXp(enemy!.xp_reward);
       addLog(`Gained ${enemy!.xp_reward} XP and ${goldReward} Gold.`, 'loot');
 
-      // Drops
+      // Reward Drops
       for (const drop of enemy!.loot_table) {
         if (Math.random() <= drop.chance) {
           const qty = Math.floor(Math.random() * (drop.max_quantity - drop.min_quantity + 1)) + drop.min_quantity;
           await addItemToInventory(drop.item_id, qty);
           addLog(`Looted ${qty}x ${drop.item_id.replace(/_/g, ' ')}!`, 'loot');
         }
+      }
+
+      // Hacky boss check for Daily Quests
+      if (enemyId === 'bandit_king') {
+        incrementDailyQuest();
+        addLog(`Daily Bounty Complete!`, 'system');
       }
 
       setTimeout(() => {

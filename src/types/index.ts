@@ -22,6 +22,8 @@ export interface Profile {
   intelligence: number;
   current_location: Location;
   traveling_until: string | null;
+  daily_quests_completed: number;
+  daily_quests_reset_at: string;
   updated_at: string;
 }
 
