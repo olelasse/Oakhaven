@@ -89,7 +89,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
         .eq('id', session.user.id)
         .single();
 
-      if (profileError || !profileData) {
+      if (profileData) {
+        // Calculate offline energy regeneration (1 energy per minute)
+        const lastUpdated = new Date(profileData.updated_at).getTime();
+        const now = Date.now();
+        const minutesPassed = Math.floor((now - lastUpdated) / 60000);
+        
+        if (minutesPassed > 0 && profileData.energy < profileData.max_energy) {
+          const newEnergy = Math.min(profileData.max_energy, profileData.energy + minutesPassed);
+          if (newEnergy !== profileData.energy) {
+            profileData.energy = newEnergy;
+            // Silently update database
+            supabase.from('profiles').update({ energy: newEnergy }).eq('id', profileData.id).then();
+          }
+        }
+
+        setProfile(profileData as Profile);
+      } else {
         // No profile found, force Character Creation
         if (location.pathname !== '/create-character') {
           navigate('/create-character');
