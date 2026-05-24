@@ -37,21 +37,13 @@ export default function Shadowwood() {
   };
 
   const handleHunt = () => {
-    if (!spendEnergy(15)) {
+    if (profile.energy < 10) {
       addLog('Not enough energy to hunt.', 'danger');
       return;
     }
-    const successChance = 0.5 + (profile.agility * 0.01) + (profile.strength * 0.01);
-    const roll = Math.random();
+    if (!spendEnergy(10)) return;
     
-    if (roll < successChance) {
-      addXp(40);
-      addGold(30);
-      addLog('You tracked and successfully hunted a Feral Wolf! Gained 40 XP and 30 Gold.', 'loot');
-    } else {
-      takeDamage(15);
-      addLog('A Feral Wolf ambushed you! You barely escaped, taking 15 HP damage.', 'danger');
-    }
+    navigate('/play/combat/feral_wolf');
   };
 
   const handleExploreRuins = () => {
@@ -131,7 +123,7 @@ export default function Shadowwood() {
                 <p className="text-xs text-stone-500">Track and fight the dangerous beasts of the woods.</p>
               </div>
             </div>
-            <span className="text-blue-400 text-sm font-bold mt-2 sm:mt-0">-15 Energy</span>
+            <span className="text-blue-400 text-sm font-bold mt-2 sm:mt-0">-10 Energy</span>
           </button>
 
           <button 

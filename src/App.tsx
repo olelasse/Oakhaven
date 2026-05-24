@@ -14,6 +14,7 @@ import Blacksmith from './pages/Blacksmith';
 import Marketplace from './pages/Marketplace';
 import AuctionHouse from './pages/AuctionHouse';
 import CharacterCreation from './pages/CharacterCreation';
+import Combat from './pages/Combat';
 
 const Home = () => (
   <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-fade-in">
@@ -51,6 +52,7 @@ function App() {
             <Route path="zones/frostpeak" element={<Frostpeak />} />
             <Route path="zones/ashen-wastes" element={<AshenWastes />} />
             <Route path="zones/crimson-citadel" element={<CrimsonCitadel />} />
+            <Route path="combat/:enemyId" element={<Combat />} />
             <Route path="blacksmith" element={<Blacksmith />} />
             <Route path="marketplace" element={<Marketplace />} />
             <Route path="auction-house" element={<AuctionHouse />} />

@@ -10,12 +10,16 @@ interface GameState {
   inventory: InventoryItem[];
   nextEnergyTick: number | null; // Timestamp for next energy regeneration
   addGold: (amount: number) => void;
+  removeGold: (amount: number) => void;
   addXp: (amount: number) => void;
   spendEnergy: (amount: number) => boolean;
   takeDamage: (amount: number) => void;
   changeLocation: (locationId: string) => void;
   upgradeItem: (inventoryId: string) => { success: boolean, message: string };
   sellItem: (inventoryId: string) => { success: boolean, message: string };
+  consumeItem: (inventoryId: string) => { success: boolean, message: string };
+  getAttackDamage: () => number;
+  addItemToInventory: (itemId: string, quantity: number) => Promise<void>;
 }
 
 const GameContext = createContext<GameState | undefined>(undefined);
@@ -141,7 +145,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     await supabase.from('profiles').update(updates).eq('id', profile.id);
   };
 
-  const addGold = (amount: number) => updateProfile({ gold: profile!.gold + amount });
+  const addGold = (amount: number) => {
+    if (!profile) return;
+    const newGold = profile.gold + amount;
+    setProfile({ ...profile, gold: newGold });
+    supabase.from('profiles').update({ gold: newGold }).eq('id', profile.id).then();
+  };
+
+  const removeGold = (amount: number) => {
+    if (!profile) return;
+    const newGold = Math.max(0, profile.gold - amount);
+    setProfile({ ...profile, gold: newGold });
+    supabase.from('profiles').update({ gold: newGold }).eq('id', profile.id).then();
+  };
   
   const addXp = (amount: number) => {
     if (!profile) return;
@@ -227,6 +243,98 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return result;
   };
 
+  const consumeItem = (inventoryId: string) => {
+    let result = { success: false, message: '' };
+    if (!profile) return result;
+
+    setInventory(prev => {
+      const invItem = prev.find(i => i.id === inventoryId);
+      if (!invItem || !invItem.item || invItem.item.type !== 'consumable') { 
+        result.message = 'Item cannot be consumed.'; 
+        return prev; 
+      }
+
+      // Handle specific consumables
+      if (invItem.item_id === 'minor_health_potion') {
+        const healAmount = 25;
+        if (profile.hp >= profile.max_hp) {
+          result.message = 'Health is already full.';
+          return prev;
+        }
+        updateProfile({ hp: Math.min(profile.max_hp, profile.hp + healAmount) });
+        result.message = `Restored ${healAmount} HP.`;
+      } else {
+        result.message = 'Unknown consumable.';
+        return prev;
+      }
+
+      // Update quantity
+      const newInv = prev.map(i => {
+        if (i.id === inventoryId) {
+          return { ...i, quantity: i.quantity - 1 };
+        }
+        return i;
+      }).filter(i => i.quantity > 0);
+
+      // Async Sync
+      if (invItem.quantity - 1 <= 0) {
+        supabase.from('inventory').delete().eq('id', inventoryId).then();
+      } else {
+        supabase.from('inventory').update({ quantity: invItem.quantity - 1 }).eq('id', inventoryId).then();
+      }
+
+      result.success = true;
+      return newInv;
+    });
+    return result;
+  };
+
+  const getAttackDamage = () => {
+    if (!profile) return 0;
+    
+    // Base damage from primary stat
+    let base = 0;
+    if (profile.character_class === 'warrior') base = Math.floor(profile.strength / 2);
+    if (profile.character_class === 'rogue') base = Math.floor(profile.agility / 2);
+    if (profile.character_class === 'mage') base = Math.floor(profile.intelligence / 2);
+
+    // Weapon damage
+    let weaponBonus = 0;
+    const equippedWeapon = inventory.find(i => i.is_equipped && i.item?.slot === 'weapon');
+    if (equippedWeapon && equippedWeapon.item) {
+      // Base weapon damage + 10% per upgrade level
+      const dmg = equippedWeapon.item.bonus_damage;
+      weaponBonus = Math.floor(dmg * (1 + (equippedWeapon.upgrade_level * 0.1)));
+    }
+
+    return Math.max(1, base + weaponBonus);
+  };
+
+  const addItemToInventory = async (itemId: string, quantity: number) => {
+    if (!profile) return;
+    
+    // Check if item exists and is stackable
+    const existing = inventory.find(i => i.item_id === itemId);
+    if (existing && existing.item && existing.item.max_stack > 1) {
+      // Stack it
+      const newQuantity = existing.quantity + quantity;
+      setInventory(prev => prev.map(i => i.id === existing.id ? { ...i, quantity: newQuantity } : i));
+      await supabase.from('inventory').update({ quantity: newQuantity }).eq('id', existing.id);
+    } else {
+      // New row
+      const { data } = await supabase.from('inventory').insert([{
+        profile_id: profile.id,
+        item_id: itemId,
+        quantity,
+        is_equipped: false
+      }]).select().single();
+      
+      if (data) {
+        setInventory(prev => [...prev, { ...data, item: getItemTemplate(itemId) }]);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center text-amber-500 font-cinzel text-xl">
@@ -242,7 +350,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const fallbackProfile = {} as Profile;
 
   return (
-    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem }}>
+    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, getAttackDamage, addItemToInventory }}>
       {children}
     </GameContext.Provider>
   );
