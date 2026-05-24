@@ -17,7 +17,7 @@ import CharacterCreation from './pages/CharacterCreation';
 
 const Home = () => (
   <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-fade-in">
-    <h1 className="text-4xl font-cinzel text-medieval-gold drop-shadow-sm">Welcome to Aethelgard</h1>
+    <h1 className="text-4xl font-cinzel text-medieval-gold drop-shadow-sm">Welcome to Oakhaven</h1>
     <p className="text-stone-800 font-sans font-medium text-lg max-w-lg leading-relaxed">
       You stand in the grand plaza of the central metropolis. 
       Merchants peddle their wares, and guards patrol the cobblestone streets. 
@@ -35,8 +35,8 @@ const NotFound = () => (
 
 function App() {
   return (
-    <GameProvider>
-      <Router>
+    <Router>
+      <GameProvider>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/create-character" element={<CharacterCreation />} />
@@ -56,10 +56,9 @@ function App() {
             <Route path="auction-house" element={<AuctionHouse />} />
             <Route path="*" element={<NotFound />} />
           </Route>
-          <Route path="*" element={<NotFound />} />
         </Routes>
-      </Router>
-    </GameProvider>
+      </GameProvider>
+    </Router>
   );
 }
 
