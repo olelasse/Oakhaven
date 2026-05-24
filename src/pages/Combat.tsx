@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 import { getEnemyTemplate } from '../data/enemies';
@@ -22,19 +22,24 @@ export default function Combat() {
   const [isFinished, setIsFinished] = useState(false);
   const [skillCooldown, setSkillCooldown] = useState(0);
 
+  const hasStarted = useRef(false);
+
   // Kick out if invalid enemy or already dead
   useEffect(() => {
     if (!enemy) {
       navigate('/play/travel');
       return;
     }
-    if (profile.hp <= 0) {
+    if (profile.hp <= 0 && !isFinished) {
       navigate('/play/profile');
     }
     
-    // Initial log
-    addLog(`You encountered a ${enemy.name}!`, 'system');
-  }, [enemy, navigate, profile.hp]);
+    // Initial log only runs once
+    if (!hasStarted.current) {
+      addLog(`You encountered a ${enemy.name}!`, 'system');
+      hasStarted.current = true;
+    }
+  }, [enemy, navigate, profile.hp, isFinished]);
 
   const addLog = (text: string, type: CombatLog['type']) => {
     setLogs(prev => [{ id: Date.now() + Math.random(), text, type }, ...prev]);
@@ -87,7 +92,7 @@ export default function Combat() {
   const handleEnemyTurn = (currentEnemyHp: number) => {
     if (isFinished || !enemy) return;
     
-    setTimeout(() => {
+    setTimeout(async () => {
       // Calculate damage
       const rawDamage = enemy.base_damage + Math.floor(Math.random() * 4) - 2;
       const actualDamage = Math.max(1, rawDamage); // eventually subtract player defense
@@ -95,7 +100,7 @@ export default function Combat() {
       addLog(`The ${enemy.name} attacks for ${actualDamage} damage!`, 'enemy');
       takeDamage(actualDamage);
       
-      const isEnded = checkCombatEnd(currentEnemyHp, profile.hp - actualDamage);
+      const isEnded = await checkCombatEnd(currentEnemyHp, profile.hp - actualDamage);
       if (!isEnded) {
         setTurn('player');
         if (skillCooldown > 0) setSkillCooldown(c => c - 1);

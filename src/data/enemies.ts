@@ -36,7 +36,7 @@ export const enemies: Record<string, EnemyTemplate> = {
       { item_id: 'minor_health_potion', chance: 0.1, min_quantity: 1, max_quantity: 1 },
       { item_id: 'rusty_iron_sword', chance: 0.05, min_quantity: 1, max_quantity: 1 }
     ],
-    image_url: 'https://images.unsplash.com/photo-1590422750017-c812d194c77c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' // Temporary stand-in
+    image_url: '/images/enemies/feral_wolf.png'
   },
   'bandit_scout': {
     id: 'bandit_scout',
@@ -54,7 +54,7 @@ export const enemies: Record<string, EnemyTemplate> = {
       { item_id: 'hunting_bow', chance: 0.1, min_quantity: 1, max_quantity: 1 },
       { item_id: 'steel_longsword', chance: 0.02, min_quantity: 1, max_quantity: 1 }
     ],
-    image_url: 'https://images.unsplash.com/photo-1598466649774-4bbaaa935821?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
+    image_url: '/images/enemies/bandit_scout.png'
   }
 };
 
