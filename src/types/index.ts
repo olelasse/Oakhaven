@@ -24,6 +24,7 @@ export interface Profile {
   traveling_until: string | null;
   daily_quests_completed: number;
   daily_quests_reset_at: string;
+  has_completed_tutorial: boolean;
   updated_at: string;
 }
 

@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { useGame } from '../contexts/GameContext';
-import { Shield, Swords, Brain, Heart, Zap, MapPin } from 'lucide-react';
+import { Shield, Swords, Brain, Heart, Zap, MapPin, Info } from 'lucide-react';
 import { getLocationName } from '../data/locations';
+import TutorialOverlay from '../components/tutorial/TutorialOverlay';
 
 export default function Profile() {
   const { profile } = useGame();
+  const [showReplayTutorial, setShowReplayTutorial] = useState(false);
 
   const avatarUrl = `/images/avatars/${profile.character_class}_${profile.gender}.png`;
 
@@ -24,6 +27,12 @@ export default function Profile() {
               <p className="text-stone-400 font-sans italic text-lg capitalize">{profile.gender} {profile.character_class} - {profile.custom_title}</p>
             </div>
             <div className="text-right">
+              <button 
+                onClick={() => setShowReplayTutorial(true)}
+                className="flex items-center gap-2 text-xs text-amber-600 hover:text-amber-500 mb-2 border border-amber-900 px-2 py-1 rounded bg-stone-950"
+              >
+                <Info size={12} /> Replay Tutorial
+              </button>
               <p className="text-stone-500 font-sans text-sm">Level <span className="text-amber-500 font-bold text-2xl">{profile.level}</span></p>
             </div>
           </div>
@@ -34,6 +43,8 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {showReplayTutorial && <TutorialOverlay onClose={() => setShowReplayTutorial(false)} />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         

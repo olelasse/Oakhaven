@@ -3,6 +3,7 @@ import { Outlet, Link } from 'react-router-dom';
 import { Shield, Map, Store, User, BookOpen, Gavel } from 'lucide-react';
 import { useGame } from '../../contexts/GameContext';
 import { getLocationName } from '../../data/locations';
+import TutorialOverlay from '../tutorial/TutorialOverlay';
 
 export default function GameLayout() {
   const { profile, nextEnergyTick } = useGame();
@@ -35,9 +36,13 @@ export default function GameLayout() {
     }
   };
 
+  const showTutorial = !profile.has_completed_tutorial;
+
   return (
     <div className="flex flex-col h-screen lg:max-h-screen lg:overflow-hidden overflow-y-auto bg-stone-950 text-stone-300 font-sans selection:bg-amber-900 selection:text-amber-100 custom-scrollbar">
       
+      {showTutorial && <TutorialOverlay />}
+
       {/* Top Header Banner */}
       <header className="h-auto lg:h-16 flex flex-col lg:flex-row items-center justify-between p-4 lg:px-6 bg-stone-900 border-b border-medieval-gold shadow-[0_4px_20px_rgba(0,0,0,0.6)] z-20 shrink-0 gap-4 lg:gap-0">
         <div className="flex items-center gap-4">

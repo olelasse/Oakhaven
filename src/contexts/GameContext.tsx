@@ -21,6 +21,7 @@ interface GameState {
   getAttackDamage: () => number;
   addItemToInventory: (itemId: string, quantity: number) => Promise<void>;
   incrementDailyQuest: () => void;
+  completeTutorial: (grantReward: boolean) => Promise<void>;
 }
 
 const GameContext = createContext<GameState | undefined>(undefined);
@@ -205,6 +206,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     updateProfile({ daily_quests_completed: newCompleted });
   };
 
+  const completeTutorial = async (grantReward: boolean) => {
+    if (!profile) return;
+    
+    // Optimsitic UI
+    setProfile({ ...profile, has_completed_tutorial: true });
+    
+    // DB
+    await supabase.from('profiles').update({ has_completed_tutorial: true }).eq('id', profile.id);
+
+    if (grantReward) {
+      addGold(50);
+      await addItemToInventory('minor_health_potion', 3);
+    }
+  };
+
   const spendEnergy = (amount: number) => {
     if (!profile) return false;
     if (profile.energy >= amount) {
@@ -383,7 +399,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const fallbackProfile = {} as Profile;
 
   return (
-    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, getAttackDamage, addItemToInventory, incrementDailyQuest }}>
+    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, getAttackDamage, addItemToInventory, incrementDailyQuest, completeTutorial }}>
       {children}
     </GameContext.Provider>
   );
