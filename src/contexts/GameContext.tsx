@@ -8,6 +8,7 @@ import { getItemTemplate } from '../data/items';
 interface GameState {
   profile: Profile;
   inventory: InventoryItem[];
+  nextEnergyTick: number | null; // Timestamp for next energy regeneration
   addGold: (amount: number) => void;
   addXp: (amount: number) => void;
   spendEnergy: (amount: number) => boolean;
@@ -25,6 +26,42 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [nextEnergyTick, setNextEnergyTick] = useState<number | null>(null);
+
+  // Energy Regeneration Logic
+  useEffect(() => {
+    if (!profile) return;
+    
+    // If we have full energy, clear the timer
+    if (profile.energy >= profile.max_energy) {
+      if (nextEnergyTick !== null) setNextEnergyTick(null);
+      return;
+    }
+
+    // If we need energy but have no timer, start one (60 seconds)
+    if (nextEnergyTick === null) {
+      setNextEnergyTick(Date.now() + 60000);
+    }
+
+    // Tick checker
+    const interval = setInterval(() => {
+      if (nextEnergyTick && Date.now() >= nextEnergyTick) {
+        // Regenerate 1 Energy
+        const newEnergy = Math.min(profile.max_energy, profile.energy + 1);
+        setProfile(p => p ? { ...p, energy: newEnergy } : null);
+        supabase.from('profiles').update({ energy: newEnergy }).eq('id', profile.id).then();
+        
+        // Reset timer if we still need more energy
+        if (newEnergy < profile.max_energy) {
+          setNextEnergyTick(Date.now() + 60000);
+        } else {
+          setNextEnergyTick(null);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [profile?.energy, profile?.max_energy, nextEnergyTick]);
 
   useEffect(() => {
     // Only enforce auth if we are inside the /play or /create-character routes
@@ -205,7 +242,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const fallbackProfile = {} as Profile;
 
   return (
-    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, addGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem }}>
+    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem }}>
       {children}
     </GameContext.Provider>
   );

@@ -1,10 +1,29 @@
+import { useState, useEffect } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { Shield, Map, Store, User, BookOpen, Gavel } from 'lucide-react';
 import { useGame } from '../../contexts/GameContext';
 import { getLocationName } from '../../data/locations';
 
 export default function GameLayout() {
-  const { profile } = useGame();
+  const { profile, nextEnergyTick } = useGame();
+  const [energyCountdown, setEnergyCountdown] = useState<string>('');
+
+  useEffect(() => {
+    if (!nextEnergyTick) {
+      setEnergyCountdown('');
+      return;
+    }
+    
+    // Initial render tick
+    const getDiff = () => Math.max(0, Math.floor((nextEnergyTick - Date.now()) / 1000));
+    setEnergyCountdown(`Restoring in ${getDiff()}s`);
+
+    const interval = setInterval(() => {
+      setEnergyCountdown(`Restoring in ${getDiff()}s`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [nextEnergyTick]);
 
   const getBackgroundImage = () => {
     switch (profile.current_location) {
@@ -33,9 +52,15 @@ export default function GameLayout() {
             <span className="text-red-400">HP</span>
             <span className="text-stone-100">{profile.hp}/{profile.max_hp}</span>
           </div>
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center relative group">
             <span className="text-blue-400">Energy</span>
             <span className="text-stone-100">{profile.energy}/{profile.max_energy}</span>
+            {/* Tooltip for Energy Timer */}
+            {profile.energy < profile.max_energy && energyCountdown && (
+              <div className="absolute top-full mt-2 w-32 bg-stone-900 border border-stone-700 text-stone-300 text-[10px] p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-center shadow-xl">
+                {energyCountdown}
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-center">
             <span className="text-amber-500">Gold</span>
@@ -108,8 +133,9 @@ export default function GameLayout() {
           
           <div className="flex flex-col items-center gap-4 text-center shrink-0">
             {/* Avatar Placeholder */}
-            <div className="w-24 h-24 rounded bg-stone-800 border-2 border-medieval-gold flex items-center justify-center shadow-lg overflow-hidden">
-              <img src="/images/avatar.png" alt="Player Avatar" className="w-full h-full object-cover" />
+            <div className="w-24 h-24 rounded bg-stone-800 border-2 border-stone-700 flex items-center justify-center shadow-lg overflow-hidden relative">
+              <img src={`/images/avatars/${profile.character_class}_${profile.gender}.png`} alt="Player Avatar" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-stone-900/50 to-transparent"></div>
             </div>
             
             <div>
@@ -148,10 +174,15 @@ export default function GameLayout() {
           </div>
 
           {/* Ad Placeholder */}
-          <div className="mt-auto w-full bg-stone-950 border border-stone-800 rounded p-4 flex flex-col items-center justify-center text-center gap-2 relative overflow-hidden group mb-4 lg:mb-0">
-            <span className="text-[10px] text-stone-600 uppercase tracking-widest absolute top-2 right-2">Advertisement</span>
-            <div className="w-full h-32 bg-stone-900 flex items-center justify-center rounded border border-stone-800 mt-4 group-hover:border-amber-900/50 transition-colors">
-              <span className="text-stone-700 font-cinzel text-sm">Ad Space Available</span>
+          <div className="mt-auto w-full bg-stone-950 border border-stone-800 rounded flex flex-col items-center justify-center text-center relative overflow-hidden group mb-4 lg:mb-0 shadow-lg hover:border-stone-700 transition-colors">
+            <span className="text-[9px] text-stone-600 uppercase tracking-widest absolute top-1 right-2 z-10">Advertisement</span>
+            <div className="w-full h-40 bg-[url('https://images.unsplash.com/photo-1542451313056-b7c8e626645f?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80')] bg-cover bg-center flex items-center justify-center relative">
+              <div className="absolute inset-0 bg-stone-950/70 group-hover:bg-stone-950/50 transition-colors"></div>
+              <div className="relative z-10 p-4">
+                <p className="text-amber-500 font-cinzel font-bold text-sm mb-1 drop-shadow-md">Need More Gold?</p>
+                <p className="text-stone-300 text-xs font-sans mb-3 drop-shadow">Visit the Royal Treasury!</p>
+                <button className="bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded shadow">Buy Gems</button>
+              </div>
             </div>
           </div>
 
