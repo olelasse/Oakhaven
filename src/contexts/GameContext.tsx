@@ -22,6 +22,7 @@ interface GameState {
   addItemToInventory: (itemId: string, quantity: number) => Promise<void>;
   incrementDailyQuest: () => void;
   completeTutorial: (grantReward: boolean) => Promise<void>;
+  logAction: (message: string, type: 'success' | 'danger' | 'loot' | 'system' | 'heal') => void;
 }
 
 const GameContext = createContext<GameState | undefined>(undefined);
@@ -33,6 +34,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [nextEnergyTick, setNextEnergyTick] = useState<number | null>(null);
+  const [nextHpTick, setNextHpTick] = useState<number | null>(null);
 
   // Energy Regeneration Logic
   useEffect(() => {
@@ -69,13 +71,37 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [profile?.energy, profile?.max_energy, nextEnergyTick]);
 
+  // Health Regeneration Logic (1 HP per hour = 3600000ms)
   useEffect(() => {
-    // Only enforce auth if we are inside the /play or /create-character routes
-    if (!location.pathname.startsWith('/play') && location.pathname !== '/create-character') {
-      setLoading(false);
+    if (!profile) return;
+    
+    if (profile.hp >= profile.max_hp) {
+      if (nextHpTick !== null) setNextHpTick(null);
       return;
     }
 
+    if (nextHpTick === null) {
+      setNextHpTick(Date.now() + 3600000); // 1 hour
+    }
+
+    const interval = setInterval(() => {
+      if (nextHpTick && Date.now() >= nextHpTick) {
+        const newHp = Math.min(profile.max_hp, profile.hp + 1);
+        setProfile(p => p ? { ...p, hp: newHp } : null);
+        supabase.from('profiles').update({ hp: newHp }).eq('id', profile.id).then();
+        
+        if (newHp < profile.max_hp) {
+          setNextHpTick(Date.now() + 3600000);
+        } else {
+          setNextHpTick(null);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [profile?.hp, profile?.max_hp, nextHpTick]);
+
+  useEffect(() => {
     const fetchGameData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -103,6 +129,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
             profileData.energy = newEnergy;
             // Silently update database
             supabase.from('profiles').update({ energy: newEnergy }).eq('id', profileData.id).then();
+          }
+        }
+
+        // Calculate offline HP regeneration (1 HP per hour)
+        const hoursPassed = Math.floor(minutesPassed / 60);
+        if (hoursPassed > 0 && profileData.hp < profileData.max_hp) {
+          const newHp = Math.min(profileData.max_hp, profileData.hp + hoursPassed);
+          if (newHp !== profileData.hp) {
+            profileData.hp = newHp;
+            supabase.from('profiles').update({ hp: newHp }).eq('id', profileData.id).then();
           }
         }
 
@@ -151,6 +187,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     };
 
+    // Redirect logic for create-character has to happen when loading is done
+    // but the fetch only happens once on mount
     fetchGameData();
 
     // Listen for auth changes
@@ -164,13 +202,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
 
     return () => authListener.subscription.unsubscribe();
-  }, [navigate, location.pathname]);
+  }, [navigate]); // Removed location.pathname to prevent looping fetches!
 
   // Database Syncing Actions
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!profile) return;
     setProfile(p => p ? { ...p, ...updates } : null); // Optimistic UI
-    await supabase.from('profiles').update(updates).eq('id', profile.id);
+    
+    // Explicitly update `updated_at` to fix offline time calculations
+    const finalUpdates = { ...updates, updated_at: new Date().toISOString() };
+    await supabase.from('profiles').update(finalUpdates).eq('id', profile.id);
+  };
+
+  const logAction = (message: string, type: 'success' | 'danger' | 'loot' | 'system' | 'heal') => {
+    if (!profile) return;
+    supabase.from('action_logs').insert([{ profile_id: profile.id, message, type }]).then();
   };
 
   const addGold = (amount: number) => {
@@ -232,7 +278,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const takeDamage = (amount: number) => {
     if (!profile) return;
-    updateProfile({ hp: Math.max(0, profile.hp - amount) });
+    const newHp = Math.max(0, profile.hp - amount);
+    
+    if (newHp === 0) {
+      // Death Penalty
+      const goldPenalty = Math.floor(profile.gold * 0.1);
+      const resHp = Math.max(1, Math.floor(profile.max_hp * 0.1));
+      logAction(`You died! Lost ${goldPenalty} Gold and awakened in Oakhaven.`, 'danger');
+      updateProfile({ hp: resHp, gold: Math.max(0, profile.gold - goldPenalty), current_location: 'oakhaven' });
+    } else {
+      updateProfile({ hp: newHp });
+    }
   };
 
   const changeLocation = (locationId: string) => {
@@ -399,7 +455,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const fallbackProfile = {} as Profile;
 
   return (
-    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, getAttackDamage, addItemToInventory, incrementDailyQuest, completeTutorial }}>
+    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, getAttackDamage, addItemToInventory, incrementDailyQuest, completeTutorial, logAction }}>
       {children}
     </GameContext.Provider>
   );

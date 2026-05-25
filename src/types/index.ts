@@ -64,6 +64,14 @@ export interface InventoryItem {
   item?: Item; // Joined relation
 }
 
+export interface ActionLog {
+  id: string;
+  profile_id: string;
+  message: string;
+  type: string;
+  created_at: string;
+}
+
 export interface DailyAdClaim {
   id: string;
   profile_id: string;

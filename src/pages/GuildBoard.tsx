@@ -13,7 +13,7 @@ interface LogEntry {
 }
 
 export default function GuildBoard() {
-  const { profile, spendEnergy, addGold, addXp, takeDamage } = useGame();
+  const { profile, spendEnergy, addGold, addXp, takeDamage, logAction } = useGame();
   const navigate = useNavigate();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [activeTab, setActiveTab] = useState<'daily' | 'regular'>('daily');
@@ -53,10 +53,12 @@ export default function GuildBoard() {
       addGold(earnedGold);
       addXp(earnedXp);
       addLog(`Completed "${quest.title}"! Earned ${earnedGold} Gold and ${earnedXp} XP.`, 'success');
+      logAction(`Completed contract "${quest.title}". Earned ${earnedGold} Gold and ${earnedXp} XP.`, 'success');
     } else {
       const damageTaken = Math.floor(Math.random() * 15) + 5;
       takeDamage(damageTaken);
       addLog(`Overwhelmed during "${quest.title}" and fled! Lost ${damageTaken} HP.`, 'failure');
+      logAction(`Failed contract "${quest.title}" and lost ${damageTaken} HP.`, 'danger');
     }
   };
 
@@ -78,7 +80,7 @@ export default function GuildBoard() {
   };
 
   return (
-    <div className="animate-fade-in flex flex-col gap-6 h-[80vh]">
+    <div className="animate-fade-in flex flex-col gap-6 lg:h-[80vh]">
       
       {/* Header */}
       <div className="flex items-center justify-between border-b-2 border-medieval-gold pb-4 shrink-0">
@@ -135,8 +137,8 @@ export default function GuildBoard() {
               
               <p className="font-sans text-stone-400 text-sm mb-6 leading-relaxed pr-6">{quest.description}</p>
               
-              <div className="flex flex-wrap items-center justify-between mt-auto pt-4 border-t border-stone-800">
-                <div className="flex gap-4 font-sans text-xs font-bold">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-auto pt-4 border-t border-stone-800">
+                <div className="flex flex-wrap gap-2 sm:gap-4 font-sans text-xs font-bold">
                   {quest.energy_cost > 0 && (
                     <span className="flex items-center gap-1 text-blue-400 bg-blue-950/30 border border-blue-900 px-2 py-1 rounded">
                       <Zap size={14} /> -{quest.energy_cost}
@@ -154,7 +156,7 @@ export default function GuildBoard() {
                   <button 
                     onClick={() => handleEmbarkDaily(quest)}
                     disabled={profile.daily_quests_completed >= 3 || profile.level < quest.min_level}
-                    className="bg-red-900 text-red-100 font-cinzel font-bold text-sm px-6 py-2 rounded border border-red-700 hover:bg-red-800 transition-colors shadow-md disabled:opacity-50"
+                    className="w-full sm:w-auto bg-red-900 text-red-100 font-cinzel font-bold text-sm px-6 py-2 rounded border border-red-700 hover:bg-red-800 transition-colors shadow-md disabled:opacity-50"
                   >
                     Fight Boss
                   </button>
@@ -162,7 +164,7 @@ export default function GuildBoard() {
                   <button 
                     onClick={() => handleEmbarkRegular(quest)}
                     disabled={profile.level < quest.min_level || profile.energy < quest.energy_cost}
-                    className="bg-stone-950 text-amber-500 font-cinzel font-bold text-sm px-6 py-2 rounded border border-stone-700 hover:border-amber-500 transition-colors shadow-md disabled:opacity-50"
+                    className="w-full sm:w-auto bg-stone-950 text-amber-500 font-cinzel font-bold text-sm px-6 py-2 rounded border border-stone-700 hover:border-amber-500 transition-colors shadow-md disabled:opacity-50"
                   >
                     Embark
                   </button>

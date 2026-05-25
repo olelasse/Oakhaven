@@ -3,6 +3,7 @@ import { useGame } from '../contexts/GameContext';
 import { Shield, Swords, Brain, Heart, Zap, MapPin, Info } from 'lucide-react';
 import { getLocationName } from '../data/locations';
 import TutorialOverlay from '../components/tutorial/TutorialOverlay';
+import AdventureHistory from '../components/profile/AdventureHistory';
 
 export default function Profile() {
   const { profile } = useGame();
@@ -116,6 +117,9 @@ export default function Profile() {
           {profile.xp} / {profile.level * 1000} XP
         </p>
       </div>
+
+      {/* Adventure History Log */}
+      <AdventureHistory />
 
     </div>
   );
