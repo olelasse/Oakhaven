@@ -13,6 +13,7 @@ import CrimsonCitadel from './pages/CrimsonCitadel';
 import Blacksmith from './pages/Blacksmith';
 import Marketplace from './pages/Marketplace';
 import AuctionHouse from './pages/AuctionHouse';
+import Bank from './pages/Bank';
 import CharacterCreation from './pages/CharacterCreation';
 import Combat from './pages/Combat';
 
@@ -56,6 +57,7 @@ function App() {
             <Route path="blacksmith" element={<Blacksmith />} />
             <Route path="marketplace" element={<Marketplace />} />
             <Route path="auction-house" element={<AuctionHouse />} />
+            <Route path="bank" element={<Bank />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

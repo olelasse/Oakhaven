@@ -1,6 +1,7 @@
 import { useGame } from '../contexts/GameContext';
 import { Package, Sword, User } from 'lucide-react';
 import type { ItemSlot } from '../types';
+import ItemTooltip from '../components/inventory/ItemTooltip';
 
 export default function Inventory() {
   const { inventory } = useGame();
@@ -23,13 +24,7 @@ export default function Inventory() {
           {equipped ? (
             <div className="text-center group relative w-full h-full flex items-center justify-center">
               <Sword size={28} className="text-amber-500" />
-              {/* Tooltip */}
-              <div className="absolute hidden group-hover:block top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-stone-950 border border-medieval-gold p-3 rounded z-50 text-left pointer-events-none shadow-xl">
-                <p className="font-cinzel text-amber-500 text-sm mb-1 border-b border-stone-800 pb-1">{equipped.item?.name}</p>
-                <p className="font-sans text-xs text-stone-400 mt-2">{equipped.item?.description}</p>
-                {equipped.item?.bonus_damage ? <p className="font-sans text-xs text-red-400 mt-2">+{equipped.item.bonus_damage} Damage</p> : null}
-                {equipped.item?.bonus_defense ? <p className="font-sans text-xs text-blue-400 mt-2">+{equipped.item.bonus_defense} Defense</p> : null}
-              </div>
+              {equipped.item && <ItemTooltip item={equipped.item} upgradeLevel={equipped.upgrade_level} />}
             </div>
           ) : (
             <div className="w-8 h-8 border-2 border-dashed border-stone-600 rounded-full opacity-30" />
@@ -83,18 +78,18 @@ export default function Inventory() {
         </div>
 
         <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
-          {backpackItems.map((invItem, index) => (
+          {backpackItems.map((invItem) => (
             <div key={invItem.id} className="aspect-square bg-stone-800 border border-stone-600 rounded flex flex-col items-center justify-center relative cursor-pointer hover:border-amber-500 group transition-colors shadow-sm hover:z-50">
                <Package size={24} className="text-stone-400 group-hover:text-amber-500" />
                <span className="absolute bottom-1 right-1 text-[10px] font-sans text-stone-400 font-bold bg-stone-950/80 px-1 rounded">x{invItem.quantity}</span>
                
-               <div className={`absolute hidden group-hover:block bottom-full mb-2 w-48 bg-stone-950 border border-medieval-gold p-3 rounded z-50 text-left pointer-events-none shadow-xl
-                 ${index % 5 === 0 ? 'left-0' : index % 5 === 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}
-               `}>
-                  <p className="font-cinzel text-amber-500 text-sm mb-1 border-b border-stone-800 pb-1">{invItem.item?.name}</p>
-                  <p className="font-sans text-xs text-stone-400 mt-2">{invItem.item?.description}</p>
-                  <p className="font-sans text-[10px] text-amber-700 mt-2 uppercase font-bold">{invItem.item?.type}</p>
-                </div>
+               {invItem.item && (
+                 <ItemTooltip 
+                   item={invItem.item} 
+                   upgradeLevel={invItem.upgrade_level} 
+                   equippedCompareItem={equippedItems.find(i => i.item?.slot === invItem.item?.slot)} 
+                 />
+               )}
             </div>
           ))}
 

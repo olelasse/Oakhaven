@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link } from 'react-router-dom';
-import { Shield, Map, Store, User, BookOpen, Gavel } from 'lucide-react';
+import { Shield, Map, Store, User, BookOpen, Gavel, Landmark } from 'lucide-react';
 import { useGame } from '../../contexts/GameContext';
 import { getLocationName } from '../../data/locations';
 import TutorialOverlay from '../tutorial/TutorialOverlay';
@@ -98,6 +98,9 @@ export default function GameLayout() {
               </Link>
               <Link to="/play/blacksmith" className="flex items-center gap-2 lg:gap-3 px-3 py-2 rounded text-sm bg-stone-950 lg:bg-transparent text-stone-600 hover:text-amber-500 border border-stone-800 lg:border-none transition-colors">
                 <Shield size={16} /> <span className="hidden sm:inline">Blacksmith</span>
+              </Link>
+              <Link to="/play/bank" className="flex items-center gap-2 lg:gap-3 px-3 py-2 rounded text-sm bg-stone-950 lg:bg-transparent hover:bg-stone-800 hover:text-amber-500 transition-colors border border-stone-800 lg:border-none">
+                <Landmark size={16} /> <span className="hidden sm:inline">The Bank</span>
               </Link>
             </div>
 

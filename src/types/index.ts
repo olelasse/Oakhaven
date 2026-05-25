@@ -10,6 +10,7 @@ export interface Profile {
   custom_title: string;
   active_theme: string;
   gold: number;
+  bank_gold: number;
   premium_tokens: number;
   level: number;
   xp: number;
@@ -24,6 +25,7 @@ export interface Profile {
   traveling_until: string | null;
   daily_quests_completed: number;
   daily_quests_reset_at: string;
+  daily_deal_bought_at: string | null;
   has_completed_tutorial: boolean;
   updated_at: string;
 }

@@ -212,7 +212,7 @@ export default function Combat() {
 
   if (!enemy) return null;
 
-  const potionCount = inventory.find(i => i.item_id === 'minor_health_potion')?.quantity || 0;
+  const potionCount = inventory.find(i => i.item_id === 'minor_health_potion' && !i.is_banked)?.quantity || 0;
 
   return (
     <div className="animate-fade-in flex flex-col h-[80vh] text-stone-300">

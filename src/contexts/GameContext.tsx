@@ -19,10 +19,15 @@ interface GameState {
   sellItem: (inventoryId: string) => { success: boolean, message: string };
   consumeItem: (inventoryId: string) => { success: boolean, message: string };
   getAttackDamage: () => number;
-  addItemToInventory: (itemId: string, quantity: number) => Promise<void>;
+  addItemToInventory: (itemId: string, quantity: number) => Promise<boolean>;
   incrementDailyQuest: () => void;
   completeTutorial: (grantReward: boolean) => Promise<void>;
   logAction: (message: string, type: 'success' | 'danger' | 'loot' | 'system' | 'heal') => void;
+  depositGold: (amount: number) => { success: boolean, message: string };
+  withdrawGold: (amount: number) => { success: boolean, message: string };
+  transferItem: (inventoryId: string, toBank: boolean, amount: number) => Promise<void>;
+  buyMarketplaceItem: (itemId: string, cost: number) => Promise<{ success: boolean, message: string }>;
+  buyDailyDeal: (itemId: string, cost: number) => Promise<{ success: boolean, message: string }>;
 }
 
 const GameContext = createContext<GameState | undefined>(undefined);
@@ -106,6 +111,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
+        setLoading(false);
         navigate('/');
         return;
       }
@@ -231,6 +237,90 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const newGold = Math.max(0, profile.gold - amount);
     setProfile({ ...profile, gold: newGold });
     supabase.from('profiles').update({ gold: newGold }).eq('id', profile.id).then();
+  };
+
+  const depositGold = (amount: number) => {
+    if (!profile) return { success: false, message: 'Not logged in.' };
+    if (profile.gold < amount) return { success: false, message: 'Not enough gold in inventory.' };
+    
+    const newGold = profile.gold - amount;
+    const newBank = profile.bank_gold + amount;
+    
+    updateProfile({ gold: newGold, bank_gold: newBank });
+    logAction(`Deposited ${amount} Gold into the vault.`, 'system');
+    return { success: true, message: `Deposited ${amount} Gold.` };
+  };
+
+  const withdrawGold = (amount: number) => {
+    if (!profile) return { success: false, message: 'Not logged in.' };
+    if (profile.bank_gold < amount) return { success: false, message: 'Not enough gold in vault.' };
+    
+    const newGold = profile.gold + amount;
+    const newBank = profile.bank_gold - amount;
+    
+    updateProfile({ gold: newGold, bank_gold: newBank });
+    logAction(`Withdrew ${amount} Gold from the vault.`, 'system');
+    return { success: true, message: `Withdrew ${amount} Gold.` };
+  };
+
+  const transferItem = async (inventoryId: string, toBank: boolean, amount: number) => {
+    if (!profile) return;
+    
+    // Find the item being moved
+    const sourceItem = inventory.find(i => i.id === inventoryId);
+    if (!sourceItem || sourceItem.is_equipped || sourceItem.is_banked === toBank) return;
+    
+    const actualAmount = Math.min(amount, sourceItem.quantity);
+    if (actualAmount <= 0) return;
+
+    // Check if destination already has a stack
+    const destItem = inventory.find(i => i.item_id === sourceItem.item_id && i.is_banked === toBank);
+
+    if (actualAmount === sourceItem.quantity) {
+      // Moving the entire stack
+      if (destItem && destItem.item && destItem.item.max_stack > 1) {
+        // Merge into destination
+        const newDestQuantity = destItem.quantity + actualAmount;
+        setInventory(prev => prev.map(i => i.id === destItem.id ? { ...i, quantity: newDestQuantity } : i).filter(i => i.id !== sourceItem.id));
+        await supabase.from('inventory').update({ quantity: newDestQuantity }).eq('id', destItem.id);
+        await supabase.from('inventory').delete().eq('id', sourceItem.id);
+      } else {
+        // Just flip the flag
+        setInventory(prev => prev.map(i => i.id === sourceItem.id ? { ...i, is_banked: toBank } : i));
+        await supabase.from('inventory').update({ is_banked: toBank }).eq('id', sourceItem.id);
+      }
+    } else {
+      // Moving a partial stack
+      const newSourceQuantity = sourceItem.quantity - actualAmount;
+      
+      if (destItem && destItem.item && destItem.item.max_stack > 1) {
+        // Add to existing destination stack
+        const newDestQuantity = destItem.quantity + actualAmount;
+        setInventory(prev => prev.map(i => {
+          if (i.id === sourceItem.id) return { ...i, quantity: newSourceQuantity };
+          if (i.id === destItem.id) return { ...i, quantity: newDestQuantity };
+          return i;
+        }));
+        await supabase.from('inventory').update({ quantity: newSourceQuantity }).eq('id', sourceItem.id);
+        await supabase.from('inventory').update({ quantity: newDestQuantity }).eq('id', destItem.id);
+      } else {
+        // Create new destination stack
+        setInventory(prev => prev.map(i => i.id === sourceItem.id ? { ...i, quantity: newSourceQuantity } : i));
+        await supabase.from('inventory').update({ quantity: newSourceQuantity }).eq('id', sourceItem.id);
+        
+        const { data } = await supabase.from('inventory').insert([{
+          profile_id: profile.id,
+          item_id: sourceItem.item_id,
+          quantity: actualAmount,
+          is_equipped: false,
+          is_banked: toBank
+        }]).select().single();
+        
+        if (data) {
+          setInventory(prev => [...prev, { ...data, item: getItemTemplate(sourceItem.item_id) }]);
+        }
+      }
+    }
   };
   
   const addXp = (amount: number) => {
@@ -394,6 +484,58 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return result;
   };
 
+  const buyMarketplaceItem = async (itemId: string, cost: number) => {
+    if (!profile) return { success: false, message: 'Not logged in.' };
+    if (profile.gold < cost) return { success: false, message: 'Not enough gold.' };
+    
+    // Add item first to ensure no gold is lost if it fails
+    const added = await addItemToInventory(itemId, 1);
+    if (!added) return { success: false, message: 'Failed to add item to inventory due to a database error.' };
+
+    // Deduct gold
+    const newGold = profile.gold - cost;
+    updateProfile({ gold: newGold });
+    
+    // Log
+    const itemName = itemId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    logAction(`Purchased ${itemName} for ${cost} Gold.`, 'system');
+    
+    return { success: true, message: `Successfully purchased ${itemName}!` };
+  };
+
+  const buyDailyDeal = async (itemId: string, cost: number) => {
+    if (!profile) return { success: false, message: 'Not logged in.' };
+    if (profile.gold < cost) return { success: false, message: 'Not enough gold.' };
+    
+    // Check if already bought today
+    if (profile.daily_deal_bought_at) {
+      const boughtDate = new Date(profile.daily_deal_bought_at);
+      const today = new Date();
+      if (boughtDate.getDate() === today.getDate() && 
+          boughtDate.getMonth() === today.getMonth() && 
+          boughtDate.getFullYear() === today.getFullYear()) {
+        return { success: false, message: 'You have already purchased the daily deal!' };
+      }
+    }
+    
+    // Add item first
+    const added = await addItemToInventory(itemId, 1);
+    if (!added) return { success: false, message: 'Failed to add item to inventory due to a database error.' };
+
+    // Deduct gold and update date
+    const newGold = profile.gold - cost;
+    updateProfile({ 
+      gold: newGold,
+      daily_deal_bought_at: new Date().toISOString()
+    });
+    
+    // Log
+    const itemName = itemId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    logAction(`Purchased Rare Daily Deal: ${itemName} for ${cost} Gold.`, 'loot');
+    
+    return { success: true, message: `Successfully purchased the Rare Deal: ${itemName}!` };
+  };
+
   const getAttackDamage = () => {
     if (!profile) return 0;
     
@@ -415,28 +557,38 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return Math.max(1, base + weaponBonus);
   };
 
-  const addItemToInventory = async (itemId: string, quantity: number) => {
-    if (!profile) return;
+  const addItemToInventory = async (itemId: string, quantity: number): Promise<boolean> => {
+    if (!profile) return false;
     
     // Check if item exists and is stackable
-    const existing = inventory.find(i => i.item_id === itemId);
+    const existing = inventory.find(i => i.item_id === itemId && !i.is_banked);
     if (existing && existing.item && existing.item.max_stack > 1) {
       // Stack it
       const newQuantity = existing.quantity + quantity;
       setInventory(prev => prev.map(i => i.id === existing.id ? { ...i, quantity: newQuantity } : i));
-      await supabase.from('inventory').update({ quantity: newQuantity }).eq('id', existing.id);
+      const { error } = await supabase.from('inventory').update({ quantity: newQuantity }).eq('id', existing.id);
+      if (error) console.error('Error updating inventory:', error);
+      return !error;
     } else {
       // New row
-      const { data } = await supabase.from('inventory').insert([{
+      const { data, error } = await supabase.from('inventory').insert([{
         profile_id: profile.id,
         item_id: itemId,
         quantity,
         is_equipped: false
       }]).select().single();
       
+      if (error) {
+        console.error('Error inserting into inventory:', error);
+        alert('Database Error: ' + (error.message || JSON.stringify(error)));
+        return false;
+      }
+      
       if (data) {
         setInventory(prev => [...prev, { ...data, item: getItemTemplate(itemId) }]);
+        return true;
       }
+      return false;
     }
   };
 
@@ -455,7 +607,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const fallbackProfile = {} as Profile;
 
   return (
-    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, getAttackDamage, addItemToInventory, incrementDailyQuest, completeTutorial, logAction }}>
+    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, getAttackDamage, addItemToInventory, incrementDailyQuest, completeTutorial, logAction, depositGold, withdrawGold, transferItem, buyMarketplaceItem, buyDailyDeal }}>
       {children}
     </GameContext.Provider>
   );
