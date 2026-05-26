@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link } from 'react-router-dom';
-import { Shield, Map, Store, User, BookOpen, Gavel, Landmark } from 'lucide-react';
+import { User, Package, Map, Sword, Store, LogOut, ArrowRight, Home, Gavel, Shield, Landmark, BookOpen } from 'lucide-react';
 import { useGame } from '../../contexts/GameContext';
 import { getLocationName } from '../../data/locations';
 import TutorialOverlay from '../tutorial/TutorialOverlay';
@@ -115,6 +115,9 @@ export default function GameLayout() {
               <Link to="/play/auction-house" className="flex items-center gap-2 lg:gap-3 px-3 py-2 rounded text-sm bg-stone-950 lg:bg-transparent text-amber-700 hover:text-amber-500 border border-stone-800 lg:border-none transition-colors font-bold">
                 <Gavel size={16} /> <span className="hidden sm:inline">Auction House</span>
               </Link>
+              <Link to="/play/compendium" className="flex items-center gap-2 lg:gap-3 px-3 py-2 rounded text-sm bg-stone-950 lg:bg-transparent text-blue-500 hover:text-blue-400 border border-stone-800 lg:border-none transition-colors">
+                <BookOpen size={16} /> <span className="hidden sm:inline">Compendium</span>
+              </Link>
             </div>
 
           </nav>
@@ -204,8 +207,9 @@ export default function GameLayout() {
           <span className="text-amber-700 font-bold">[Global]</span>
           <span className="text-stone-400 hidden sm:inline">The server will restart in 4 hours for routine maintenance.</span>
         </div>
-        <div className="text-stone-600 font-sans tracking-wide">
-          &copy; 2026 Bjellaas Media | <a href="https://bjellaas.com" target="_blank" rel="noopener noreferrer" className="hover:text-amber-700 transition-colors">bjellaas.com</a>
+        <div className="text-stone-600 font-sans tracking-wide flex items-center gap-4">
+          <Link to="/updates" className="text-amber-700 hover:text-amber-500 font-bold underline">Update History</Link>
+          <span>&copy; 2026 Bjellaas Media | <a href="https://bjellaas.com" target="_blank" rel="noopener noreferrer" className="hover:text-amber-700 transition-colors">bjellaas.com</a></span>
         </div>
       </footer>
       

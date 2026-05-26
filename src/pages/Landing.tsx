@@ -121,8 +121,11 @@ export default function Landing() {
         </section>
 
         {/* Footer */}
-        <footer className="bg-stone-950 border-t border-stone-900 py-8 text-center text-stone-600 text-sm relative z-20">
+        <footer className="bg-stone-950 border-t border-stone-900 py-8 text-center text-stone-600 text-sm relative z-20 flex flex-col items-center gap-2">
           <p>&copy; 2026 Bjellaas Media | <a href="https://bjellaas.com" target="_blank" rel="noopener noreferrer" className="hover:text-amber-700 transition-colors">bjellaas.com</a></p>
+          <button onClick={() => navigate('/updates')} className="text-amber-600 hover:text-amber-500 font-cinzel font-bold text-xs uppercase tracking-widest mt-2 border border-stone-800 px-3 py-1 rounded bg-stone-900/50">
+            View Update History
+          </button>
         </footer>
 
       </div>

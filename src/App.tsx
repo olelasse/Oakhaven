@@ -17,6 +17,9 @@ import Bank from './pages/Bank';
 import CharacterCreation from './pages/CharacterCreation';
 import Combat from './pages/Combat';
 import QuestBriefing from './pages/QuestBriefing';
+import Changelog from './pages/Changelog';
+import Compendium from './pages/Compendium';
+import Campaign from './pages/Campaign';
 
 const Home = () => (
   <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-fade-in">
@@ -43,6 +46,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/create-character" element={<CharacterCreation />} />
+          <Route path="/updates" element={<Changelog />} />
+          <Route path="/compendium" element={<Compendium />} />
           
           <Route path="/play" element={<GameLayout />}>
             <Route index element={<Home />} />
@@ -55,11 +60,13 @@ function App() {
             <Route path="zones/frostpeak" element={<Frostpeak />} />
             <Route path="zones/ashen-wastes" element={<AshenWastes />} />
             <Route path="zones/crimson-citadel" element={<CrimsonCitadel />} />
+            <Route path="campaign" element={<Campaign />} />
             <Route path="combat/:enemyId" element={<Combat />} />
             <Route path="blacksmith" element={<Blacksmith />} />
             <Route path="marketplace" element={<Marketplace />} />
             <Route path="auction-house" element={<AuctionHouse />} />
             <Route path="bank" element={<Bank />} />
+            <Route path="compendium" element={<Compendium />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

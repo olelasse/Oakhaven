@@ -27,6 +27,7 @@ export interface Profile {
   daily_quests_reset_at: string;
   daily_deal_bought_at: string | null;
   has_completed_tutorial: boolean;
+  campaign_progress: number;
   updated_at: string;
 }
 

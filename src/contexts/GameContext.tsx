@@ -14,6 +14,7 @@ interface GameState {
   addXp: (amount: number) => void;
   spendEnergy: (amount: number) => boolean;
   takeDamage: (amount: number) => void;
+  healDamage: (amount: number) => void;
   changeLocation: (locationId: string) => void;
   upgradeItem: (inventoryId: string) => { success: boolean, message: string };
   sellItem: (inventoryId: string) => { success: boolean, message: string };
@@ -22,6 +23,7 @@ interface GameState {
   getAttackDamage: () => number;
   addItemToInventory: (itemId: string, quantity: number) => Promise<boolean>;
   incrementDailyQuest: () => void;
+  incrementCampaignProgress: () => void;
   completeTutorial: (grantReward: boolean) => Promise<void>;
   logAction: (message: string, type: 'success' | 'danger' | 'loot' | 'system' | 'heal') => void;
   depositGold: (amount: number) => { success: boolean, message: string };
@@ -339,6 +341,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     updateProfile({ daily_quests_completed: newCompleted });
   };
 
+  const incrementCampaignProgress = () => {
+    if (!profile) return;
+    const newProgress = (profile.campaign_progress || 0) + 1;
+    updateProfile({ campaign_progress: newProgress });
+  };
+
   const completeTutorial = async (grantReward: boolean) => {
     if (!profile) return;
     
@@ -381,6 +389,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
         supabase.from('profiles').update({ hp: newHp, updated_at: new Date().toISOString() }).eq('id', p.id).then();
         return { ...p, hp: newHp };
       }
+    });
+  };
+
+  const healDamage = (amount: number) => {
+    setProfile(p => {
+      if (!p) return null;
+      const newHp = Math.min(p.max_hp, p.hp + amount);
+      if (newHp !== p.hp) {
+        supabase.from('profiles').update({ hp: newHp, updated_at: new Date().toISOString() }).eq('id', p.id).then();
+      }
+      return { ...p, hp: newHp };
     });
   };
 
@@ -643,7 +662,33 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const fallbackProfile = {} as Profile;
 
   return (
-    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, toggleEquipItem, getAttackDamage, addItemToInventory, incrementDailyQuest, completeTutorial, logAction, depositGold, withdrawGold, transferItem, buyMarketplaceItem, buyDailyDeal }}>
+    <GameContext.Provider value={{ 
+      profile: profile || fallbackProfile, 
+      inventory, 
+      nextEnergyTick, 
+      addGold, 
+      removeGold, 
+      addXp, 
+      spendEnergy, 
+      takeDamage, 
+      healDamage, 
+      changeLocation, 
+      upgradeItem, 
+      sellItem, 
+      consumeItem,      
+      toggleEquipItem,
+      getAttackDamage,
+      addItemToInventory,
+      incrementDailyQuest,
+      incrementCampaignProgress,
+      completeTutorial,
+      logAction, 
+      depositGold, 
+      withdrawGold, 
+      transferItem, 
+      buyMarketplaceItem, 
+      buyDailyDeal 
+    }}>
       {children}
     </GameContext.Provider>
   );
