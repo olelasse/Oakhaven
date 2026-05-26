@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, Skull, TreePine, Mountain, Castle, ShieldAlert, BookOpen } from 'lucide-react';
+import { MapPin, Skull, TreePine, Mountain, Castle, ShieldAlert, BookOpen, Landmark } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 

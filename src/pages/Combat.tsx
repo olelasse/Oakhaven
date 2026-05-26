@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 import { getEnemyTemplate } from '../data/enemies';
-import { getSkillsForClass, SkillTemplate } from '../data/skills';
-import { Sword, Wind, Flame, ShieldAlert, FlaskConical, ArrowLeft, Zap, Shield, Droplet } from 'lucide-react';
+import { getSkillsForClass, type SkillTemplate } from '../data/skills';
+import { Sword, Wind, Flame, ShieldAlert, FlaskConical, Zap, Droplet } from 'lucide-react';
 
 interface CombatLog {
   id: number;
@@ -190,8 +190,6 @@ export default function Combat() {
       }
 
       if (!isEnded) {
-        // Process Player Statuses (at the start of their turn effectively)
-        const playerHpAfter = profile.hp - (evadeStatus ? 0 : Math.max(1, enemy.base_damage + Math.floor(Math.random() * 4) - 2)); // hacky but we handle it via state soon
         // Actually, let's just decrement cooldowns and switch turn.
         decrementCooldowns();
         setTurn('player');

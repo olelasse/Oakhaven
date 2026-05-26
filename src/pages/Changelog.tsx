@@ -1,27 +1,16 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, GitCommit, Sparkles, Wrench, ShieldAlert, Cpu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, GitCommit } from 'lucide-react';
 import { CHANGELOG } from '../data/changelog';
 
 export default function Changelog() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [expandedVersion, setExpandedVersion] = useState<string>(CHANGELOG[0].version);
 
   // If they came from landing page, return there. Otherwise return to hub.
   const goBack = () => {
     // A simple heuristic: if there's no profile or we are on landing, they likely came from /
     navigate(-1);
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch(category) {
-      case 'feature': return <Sparkles size={16} className="text-amber-500" />;
-      case 'fix': return <Wrench size={16} className="text-blue-400" />;
-      case 'balance': return <ShieldAlert size={16} className="text-purple-400" />;
-      case 'system': return <Cpu size={16} className="text-green-400" />;
-      default: return <GitCommit size={16} className="text-stone-500" />;
-    }
   };
 
   const getCategoryLabel = (category: string) => {

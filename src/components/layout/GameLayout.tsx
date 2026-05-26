@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link } from 'react-router-dom';
-import { User, Package, Map, Sword, Store, LogOut, ArrowRight, Home, Gavel, Shield, Landmark, BookOpen } from 'lucide-react';
+import { User, Map, Store, Gavel, Shield, Landmark, BookOpen } from 'lucide-react';
 import { useGame } from '../../contexts/GameContext';
 import { getLocationName } from '../../data/locations';
 import TutorialOverlay from '../tutorial/TutorialOverlay';
