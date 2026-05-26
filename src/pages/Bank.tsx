@@ -167,8 +167,8 @@ export default function Bank() {
             {bankedItems.length === 0 ? (
               <p className="text-stone-600 italic text-sm text-center mt-4">The vault is empty.</p>
             ) : (
-              <div className="grid grid-cols-5 gap-2">
-                {bankedItems.map(invItem => (
+              <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
+                {bankedItems.map((invItem: any) => (
                   <div 
                     key={invItem.id} 
                     className="aspect-square bg-stone-950 border border-stone-800 rounded relative cursor-pointer hover:border-amber-500 transition-colors group"

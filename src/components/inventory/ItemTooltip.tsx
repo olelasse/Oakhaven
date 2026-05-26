@@ -63,8 +63,8 @@ export default function ItemTooltip({ item, upgradeLevel = 0, equippedCompareIte
       </div>
 
       {compareStats && (
-        <div className="mt-3 pt-2 border-t border-stone-800 text-[10px] text-stone-500 italic">
-          Comparing to: {equippedCompareItem.item?.name}
+        <div className="text-stone-500 mt-2 italic text-[10px]">
+          Comparing to: {equippedCompareItem?.item?.name || 'Nothing equipped'}
         </div>
       )}
     </div>

@@ -13,7 +13,7 @@ export default function TravelHub() {
   
   const currentLocationId = profile.current_location;
 
-  const handleTravel = (id?: string, path?: string) => {
+  const handleTravel = (_id?: string, path?: string) => {
     if (path) {
       navigate(path);
       return;
