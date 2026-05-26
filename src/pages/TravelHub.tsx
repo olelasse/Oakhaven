@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, Skull, TreePine, Mountain, Castle, ShieldAlert } from 'lucide-react';
+import { MapPin, Skull, TreePine, Mountain, Castle, ShieldAlert, BookOpen, Landmark } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 
@@ -13,7 +13,12 @@ export default function TravelHub() {
   
   const currentLocationId = profile.current_location;
 
-  const handleTravel = () => {
+  const handleTravel = (id?: string, path?: string) => {
+    if (path) {
+      navigate(path);
+      return;
+    }
+
     if (!selectedLocation) return;
     
     changeLocation(selectedLocation.id);
@@ -50,6 +55,35 @@ export default function TravelHub() {
       <div>
         <h1 className="text-3xl drop-shadow-sm border-b-2 border-medieval-gold pb-2 mb-2">World Map</h1>
         <p className="text-sm font-sans text-stone-500 italic">Select a destination to journey across Aethelgard...</p>
+      </div>
+
+      {/* Quick Access */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button 
+          onClick={() => handleTravel('bank', '/play/bank')}
+          className="flex items-center gap-4 p-4 bg-stone-900 border border-stone-800 hover:border-amber-700 rounded group transition-all text-left"
+        >
+          <div className="p-3 bg-stone-950 rounded group-hover:bg-amber-900/30 transition-colors">
+            <Landmark className="text-stone-500 group-hover:text-amber-500" size={24} />
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="font-cinzel font-bold text-stone-200">The Bank</span>
+            <span className="text-xs text-stone-400">Safely store your wealth.</span>
+          </div>
+        </button>
+
+        <button 
+          onClick={() => handleTravel('campaign', '/play/campaign')}
+          className="flex items-center gap-4 p-4 bg-amber-950/20 border-2 border-amber-900/50 hover:border-amber-500 rounded group transition-all text-left shadow-[0_0_15px_rgba(180,83,9,0.1)] hover:shadow-[0_0_20px_rgba(180,83,9,0.2)]"
+        >
+          <div className="p-3 bg-amber-900/40 rounded group-hover:bg-amber-800 transition-colors">
+            <BookOpen className="text-amber-500 group-hover:text-amber-100" size={24} />
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="font-cinzel font-bold text-amber-500 group-hover:text-amber-400">Main Story</span>
+            <span className="text-xs text-stone-400">Continue the epic campaign.</span>
+          </div>
+        </button>
       </div>
 
       {/* Map Container */}
@@ -115,7 +149,7 @@ export default function TravelHub() {
             
             <div className="mt-4 flex gap-4">
               <button 
-                onClick={handleTravel}
+                onClick={() => handleTravel()}
                 disabled={selectedLocation.id === currentLocationId || selectedLocation.dangerLevel > profile.level + 2}
                 className="px-6 py-2 bg-stone-800 hover:bg-amber-700 text-amber-500 hover:text-stone-100 font-cinzel font-bold border border-amber-900 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
               >

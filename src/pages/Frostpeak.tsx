@@ -1,163 +1,97 @@
-import { useState } from 'react';
-import { Pickaxe, Skull, Snowflake, Search, ArrowLeft } from 'lucide-react';
-import { useGame } from '../contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
 
-interface LogEntry {
-  id: number;
-  text: string;
-  type: 'neutral' | 'success' | 'danger' | 'loot';
-}
+import { getQuestsByLocation } from '../data/quests';
+import { ArrowLeft, Zap, Coins, ArrowRight, Skull, Swords } from 'lucide-react';
 
 export default function Frostpeak() {
-  const { profile, spendEnergy, takeDamage, addGold, addXp, changeLocation } = useGame();
+
   const navigate = useNavigate();
-  const [logs, setLogs] = useState<LogEntry[]>([
-    { id: 0, text: 'The biting wind of Frostpeak chills you to the bone...', type: 'neutral' }
-  ]);
 
-  const addLog = (text: string, type: LogEntry['type']) => {
-    setLogs(prev => [{ id: Date.now(), text, type }, ...prev]);
-  };
-
-  const handleMine = () => {
-    if (!spendEnergy(10)) {
-      addLog('Not enough energy to mine.', 'danger');
-      return;
-    }
-    const roll = Math.random();
-    if (roll > 0.5) {
-      addGold(25);
-      addXp(15);
-      addLog('You extracted raw Obsidian! Sold for 25 Gold.', 'success');
-    } else {
-      addXp(5);
-      addLog('Your pickaxe bounced off the frozen rock. Nothing found.', 'neutral');
-    }
-  };
-
-  const handleHunt = () => {
-    if (!spendEnergy(20)) {
-      addLog('Not enough energy to hunt.', 'danger');
-      return;
-    }
-    const successChance = 0.4 + (profile.strength * 0.02);
-    const roll = Math.random();
-    
-    if (roll < successChance) {
-      addXp(80);
-      addGold(50);
-      addLog('You defeated a Frost Troll! Gained 80 XP and 50 Gold.', 'loot');
-    } else {
-      takeDamage(25);
-      addLog('The Frost Troll overpowered you! You took 25 HP damage.', 'danger');
-    }
-  };
-
-  const handleBraveBlizzard = () => {
-    if (!spendEnergy(40)) {
-      addLog('You are too exhausted to brave the blizzard.', 'danger');
-      return;
-    }
-    const successChance = 0.2 + (profile.intelligence * 0.02) + (profile.strength * 0.01);
-    const roll = Math.random();
-    
-    if (roll < successChance) {
-      addXp(250);
-      addGold(200);
-      addLog('You survived the blizzard and found a frozen hero\'s stash! Gained 250 XP and 200 Gold.', 'loot');
-    } else {
-      takeDamage(60);
-      addLog('The blizzard overwhelmed you! You suffered severe frostbite, taking 60 HP damage.', 'danger');
-    }
-  };
+  const quests = getQuestsByLocation('frostpeak');
 
   const returnHome = () => {
-    changeLocation('oakhaven');
-    navigate('/play/travel');
+    navigate('/travel');
   };
 
   return (
-    <div className="animate-fade-in flex flex-col gap-6 h-full text-stone-300">
-      <div className="flex justify-between items-center border-b-2 border-stone-800 pb-2 mb-2">
+    <div className="animate-fade-in flex flex-col gap-6 lg:h-[80vh]">
+      
+      {/* Header */}
+      <div className="flex justify-between items-center border-b-2 border-stone-800 pb-2 mb-2 shrink-0">
         <div>
           <h1 className="text-3xl font-cinzel text-blue-300 drop-shadow-sm">The Obsidian Peak</h1>
           <p className="text-sm font-sans text-stone-400 italic">Treacherous, freezing peaks.</p>
         </div>
         <button 
           onClick={returnHome}
-          className="flex items-center gap-2 px-4 py-2 bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-blue-700 text-stone-400 hover:text-blue-400 rounded transition-colors text-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-blue-700 text-stone-400 hover:text-blue-500 rounded transition-colors text-sm"
         >
-          <ArrowLeft size={16} /> Return to Travel Hub
+          <ArrowLeft size={16} /> Travel Hub
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-        <div className="flex flex-col gap-4">
-          <h2 className="font-cinzel text-xl text-stone-400 border-b border-stone-800 pb-2">Zone Actions</h2>
-          
-          <button 
-            onClick={handleMine} disabled={profile.energy < 10}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-stone-950/80 border border-stone-800 hover:border-blue-800 rounded group transition-all text-left"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-stone-900 rounded group-hover:bg-blue-900/30">
-                <Pickaxe className="text-blue-600 group-hover:text-blue-500" size={24} />
+      {/* Quests Grid */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {quests.map(quest => (
+            <div key={quest.id} className="bg-stone-900 rounded border border-stone-700 shadow-sm relative overflow-hidden group flex flex-col h-full hover:border-blue-700 transition-colors">
+              {/* Difficulty indicator */}
+              <div className={`absolute top-0 right-0 w-2 h-full z-10 ${
+                quest.difficulty === 'Easy' ? 'bg-green-600' :
+                quest.difficulty === 'Medium' ? 'bg-amber-500' : 
+                quest.difficulty === 'Hard' ? 'bg-orange-600' : 'bg-red-700'
+              }`} />
+              
+              {/* Card Image Banner */}
+              <div className="h-32 relative w-full border-b border-stone-800 bg-stone-950 flex items-center justify-center">
+                {/* Fallback pattern since we don't have images for all biome quests yet */}
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900 to-transparent"></div>
+                <h3 className="font-cinzel font-bold text-blue-300 text-xl drop-shadow-md z-10 text-center px-4">{quest.title}</h3>
+                
+                {quest.type === 'encounter' && (
+                  <div className="absolute top-2 right-4 z-10">
+                    <span className="bg-purple-950 border border-purple-800 text-purple-200 text-[10px] uppercase px-2 py-1 rounded flex items-center gap-1 font-bold shadow-md">
+                      <Swords size={12}/> Encounter
+                    </span>
+                  </div>
+                )}
+                {quest.difficulty === 'Boss' && (
+                  <div className="absolute top-2 right-4 z-10">
+                    <span className="bg-red-900 border border-red-800 text-red-100 text-[10px] uppercase px-2 py-1 rounded flex items-center gap-1 font-bold shadow-md">
+                      <Skull size={12}/> Boss
+                    </span>
+                  </div>
+                )}
               </div>
-              <div>
-                <h3 className="font-bold text-stone-300 group-hover:text-blue-400">Mine Obsidian</h3>
-                <p className="text-xs text-stone-500">Extract rare materials from the frozen earth.</p>
+              
+              {/* Card Content */}
+              <div className="p-4 flex-1 flex flex-col relative z-20 bg-stone-900">
+                <p className="font-sans text-stone-400 text-sm mb-6 leading-relaxed line-clamp-3">{quest.description}</p>
+                
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-auto pt-4 border-t border-stone-800">
+                  <div className="flex flex-wrap gap-2 font-sans text-xs font-bold">
+                    {quest.energy_cost > 0 && (
+                      <span className="flex items-center gap-1 text-blue-400 bg-blue-950/30 border border-blue-900 px-2 py-1 rounded">
+                        <Zap size={14} /> -{quest.energy_cost}
+                      </span>
+                    )}
+                    {quest.type !== 'encounter' && (
+                      <span className="flex items-center gap-1 text-amber-500 bg-amber-950/30 border border-amber-900 px-2 py-1 rounded">
+                        <Coins size={14} /> {quest.reward_gold[0]}-{quest.reward_gold[1]}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <button 
+                    onClick={() => navigate(`/play/quest/${quest.id}`)}
+                    className="w-full sm:w-auto bg-stone-950 text-blue-400 font-cinzel font-bold text-sm px-4 py-2 rounded border border-stone-700 hover:border-blue-500 transition-colors shadow-md flex items-center justify-center gap-2"
+                  >
+                    Details <ArrowRight size={16} />
+                  </button>
+                </div>
               </div>
             </div>
-            <span className="text-blue-400 text-sm font-bold mt-2 sm:mt-0">-10 Energy</span>
-          </button>
-
-          <button 
-            onClick={handleHunt} disabled={profile.energy < 20}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-stone-950/80 border border-stone-800 hover:border-indigo-900/50 rounded group transition-all text-left"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-stone-900 rounded group-hover:bg-indigo-900/30">
-                <Skull className="text-stone-500 group-hover:text-indigo-400" size={24} />
-              </div>
-              <div>
-                <h3 className="font-bold text-stone-300 group-hover:text-indigo-400">Hunt Frost Trolls</h3>
-                <p className="text-xs text-stone-500">Battle the apex predators of the peaks.</p>
-              </div>
-            </div>
-            <span className="text-blue-400 text-sm font-bold mt-2 sm:mt-0">-20 Energy</span>
-          </button>
-
-          <button 
-            onClick={handleBraveBlizzard} disabled={profile.energy < 40}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-stone-950/80 border border-stone-800 hover:border-cyan-700 rounded group transition-all text-left"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-stone-900 rounded group-hover:bg-cyan-900/30">
-                <Snowflake className="text-stone-500 group-hover:text-cyan-400" size={24} />
-              </div>
-              <div>
-                <h3 className="font-bold text-stone-300 group-hover:text-cyan-400">Brave the Blizzard</h3>
-                <p className="text-xs text-stone-500">Venture into the storm for legendary rewards.</p>
-              </div>
-            </div>
-            <span className="text-blue-400 text-sm font-bold mt-2 sm:mt-0">-40 Energy</span>
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-4 bg-stone-950/90 rounded border border-stone-800 p-4 shadow-inner max-h-[400px]">
-          <div className="flex items-center justify-between border-b border-stone-800 pb-2">
-            <h2 className="font-cinzel text-stone-400 flex items-center gap-2">
-              <Search size={16} /> Exploration Log
-            </h2>
-          </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-            {logs.map((log) => (
-              <div key={log.id} className={`text-sm p-2 rounded bg-stone-900/50 border-l-2 animate-fade-in ${log.type === 'neutral' ? 'border-stone-600 text-stone-400' : ''} ${log.type === 'success' ? 'border-green-600 text-green-400' : ''} ${log.type === 'danger' ? 'border-red-600 text-red-400' : ''} ${log.type === 'loot' ? 'border-amber-500 text-amber-500 font-bold' : ''}`}>
-                {log.text}
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
     </div>

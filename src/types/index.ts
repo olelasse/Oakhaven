@@ -10,6 +10,7 @@ export interface Profile {
   custom_title: string;
   active_theme: string;
   gold: number;
+  bank_gold: number;
   premium_tokens: number;
   level: number;
   xp: number;
@@ -24,7 +25,9 @@ export interface Profile {
   traveling_until: string | null;
   daily_quests_completed: number;
   daily_quests_reset_at: string;
+  daily_deal_bought_at: string | null;
   has_completed_tutorial: boolean;
+  campaign_progress: number;
   updated_at: string;
 }
 
@@ -62,6 +65,14 @@ export interface InventoryItem {
   upgrade_level: number; // max 10 for equipment
   created_at: string;
   item?: Item; // Joined relation
+}
+
+export interface ActionLog {
+  id: string;
+  profile_id: string;
+  message: string;
+  type: string;
+  created_at: string;
 }
 
 export interface DailyAdClaim {

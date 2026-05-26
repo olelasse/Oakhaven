@@ -2,25 +2,39 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 import { getEnemyTemplate } from '../data/enemies';
-import { Sword, Wind, Flame, ShieldAlert, FlaskConical, ArrowLeft } from 'lucide-react';
+import { getSkillsForClass, type SkillTemplate } from '../data/skills';
+import { Sword, Wind, Flame, ShieldAlert, FlaskConical, Zap, Droplet } from 'lucide-react';
 
 interface CombatLog {
   id: number;
   text: string;
-  type: 'player' | 'enemy' | 'system' | 'heal' | 'loot';
+  type: 'player' | 'enemy' | 'system' | 'heal' | 'loot' | 'buff' | 'dot' | 'danger';
+}
+
+interface ActiveStatus {
+  id: string; // matches skill.id or 'poison'
+  name: string;
+  type: 'buff' | 'dot';
+  duration: number;
+  value: number;
 }
 
 export default function Combat() {
   const { enemyId } = useParams();
   const navigate = useNavigate();
-  const { profile, inventory, takeDamage, getAttackDamage, addGold, removeGold, addXp, consumeItem, spendEnergy, changeLocation, addItemToInventory, incrementDailyQuest } = useGame();
+  const { profile, inventory, takeDamage, healDamage, getAttackDamage, addGold, removeGold, addXp, consumeItem, spendEnergy, changeLocation, addItemToInventory, incrementDailyQuest, incrementCampaignProgress, logAction } = useGame();
   
   const [enemy] = useState(() => enemyId ? getEnemyTemplate(enemyId) : undefined);
   const [enemyHp, setEnemyHp] = useState(enemy ? enemy.max_hp : 0);
   const [logs, setLogs] = useState<CombatLog[]>([]);
   const [turn, setTurn] = useState<'player' | 'enemy'>('player');
   const [isFinished, setIsFinished] = useState(false);
-  const [skillCooldown, setSkillCooldown] = useState(0);
+  
+  const [playerCooldowns, setPlayerCooldowns] = useState<Record<string, number>>({});
+  const [playerStatuses, setPlayerStatuses] = useState<ActiveStatus[]>([]);
+  const [enemyStatuses, setEnemyStatuses] = useState<ActiveStatus[]>([]);
+
+  const availableSkills = getSkillsForClass(profile?.character_class || '');
 
   const hasStarted = useRef(false);
 
@@ -48,11 +62,11 @@ export default function Combat() {
   const checkCombatEnd = async (currentEnemyHp: number, currentPlayerHp: number) => {
     if (currentPlayerHp <= 0) {
       setIsFinished(true);
-      addLog('You have been defeated...', 'danger' as any);
+      addLog('You have been defeated...', 'danger');
       // Death penalty
       const goldLost = Math.floor(profile.gold * 0.1);
       removeGold(goldLost);
-      addLog(`You lost ${goldLost} Gold.`, 'danger' as any);
+      addLog(`You lost ${goldLost} Gold.`, 'danger');
       // Send them to town
       setTimeout(() => {
         changeLocation('oakhaven');
@@ -70,6 +84,7 @@ export default function Combat() {
       addGold(goldReward);
       addXp(enemy!.xp_reward);
       addLog(`Gained ${enemy!.xp_reward} XP and ${goldReward} Gold.`, 'loot');
+      logAction(`Defeated ${enemy!.name}. Gained ${enemy!.xp_reward} XP and ${goldReward} Gold.`, 'success');
 
       // Reward Drops
       for (const drop of enemy!.loot_table) {
@@ -77,17 +92,25 @@ export default function Combat() {
           const qty = Math.floor(Math.random() * (drop.max_quantity - drop.min_quantity + 1)) + drop.min_quantity;
           await addItemToInventory(drop.item_id, qty);
           addLog(`Looted ${qty}x ${drop.item_id.replace(/_/g, ' ')}!`, 'loot');
+          logAction(`Looted ${qty}x ${drop.item_id.replace(/_/g, ' ')}!`, 'loot');
         }
       }
 
-      // Hacky boss check for Daily Quests
       if (enemyId === 'bandit_king') {
         incrementDailyQuest();
         addLog(`Daily Bounty Complete!`, 'system');
       }
 
+      // Hacky campaign boss check
+      const { CAMPAIGN_DATABASE } = await import('../data/campaign');
+      const currentStage = CAMPAIGN_DATABASE.find(c => c.progress_id === profile.campaign_progress);
+      if (currentStage && enemyId === currentStage.enemy_id) {
+        incrementCampaignProgress();
+        addLog(`Campaign Quest Updated!`, 'system');
+      }
+
       setTimeout(() => {
-        navigate(-1); // go back to wherever they came from
+        navigate(-1);
       }, 3000);
       return true;
     }
@@ -95,30 +118,94 @@ export default function Combat() {
     return false;
   };
 
-  const handleEnemyTurn = (currentEnemyHp: number) => {
+  const processStatuses = async (target: 'player' | 'enemy', currentHp: number) => {
+    let hpAfterStatuses = currentHp;
+    const statuses = target === 'player' ? playerStatuses : enemyStatuses;
+    const newStatuses: ActiveStatus[] = [];
+
+    for (const status of statuses) {
+      if (status.type === 'dot') {
+        hpAfterStatuses -= status.value;
+        if (target === 'player') {
+          takeDamage(status.value);
+          addLog(`You took ${status.value} damage from ${status.name}!`, 'danger');
+        } else {
+          setEnemyHp(hpAfterStatuses);
+          addLog(`${enemy!.name} took ${status.value} damage from ${status.name}!`, 'player');
+        }
+      }
+
+      if (status.duration > 1) {
+        newStatuses.push({ ...status, duration: status.duration - 1 });
+      } else if (status.type === 'buff') {
+        addLog(`${status.name} has worn off.`, 'system');
+      }
+    }
+
+    if (target === 'player') setPlayerStatuses(newStatuses);
+    else setEnemyStatuses(newStatuses);
+
+    return hpAfterStatuses;
+  };
+
+  const decrementCooldowns = () => {
+    setPlayerCooldowns(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(key => {
+        if (next[key] > 0) next[key] -= 1;
+      });
+      return next;
+    });
+  };
+
+  const handleEnemyTurn = async (currentEnemyHp: number) => {
     if (isFinished || !enemy) return;
     
+    // Process Enemy Statuses (e.g. Poison taking effect before they hit)
+    const hpAfterStatuses = await processStatuses('enemy', currentEnemyHp);
+    let isEnded = await checkCombatEnd(hpAfterStatuses, profile.hp);
+    if (isEnded) return;
+
     setTimeout(async () => {
-      // Calculate damage
-      const rawDamage = enemy.base_damage + Math.floor(Math.random() * 4) - 2;
-      const actualDamage = Math.max(1, rawDamage); // eventually subtract player defense
-      
-      addLog(`The ${enemy.name} attacks for ${actualDamage} damage!`, 'enemy');
-      takeDamage(actualDamage);
-      
-      const isEnded = await checkCombatEnd(currentEnemyHp, profile.hp - actualDamage);
+      // Check Player Evade
+      const evadeStatus = playerStatuses.find(s => s.id === 'skill_evade');
+      if (evadeStatus) {
+        addLog(`The ${enemy.name} attacked, but you dodged into the shadows!`, 'buff');
+      } else {
+        // Calculate raw damage
+        const rawDamage = enemy.base_damage + Math.floor(Math.random() * 4) - 2;
+        let actualDamage = Math.max(1, rawDamage);
+        
+        // Check Player Defensive Buffs
+        const ironSkin = playerStatuses.find(s => s.id === 'skill_iron_skin');
+        if (ironSkin) {
+          actualDamage = Math.floor(actualDamage * (1 - ironSkin.value));
+          addLog(`Your Iron Skin absorbed some of the blow!`, 'buff');
+        }
+
+        addLog(`The ${enemy.name} attacks for ${actualDamage} damage!`, 'enemy');
+        takeDamage(actualDamage);
+        
+        isEnded = await checkCombatEnd(hpAfterStatuses, profile.hp - actualDamage);
+      }
+
       if (!isEnded) {
+        // Actually, let's just decrement cooldowns and switch turn.
+        decrementCooldowns();
         setTurn('player');
-        if (skillCooldown > 0) setSkillCooldown(c => c - 1);
       }
     }, 1000);
   };
 
   const handlePlayerAttack = async () => {
     if (turn !== 'player' || isFinished || !enemy) return;
-    
     setTurn('enemy');
     
+    // Process Player Statuses
+    const playerHpAfter = await processStatuses('player', profile.hp);
+    let isEnded = await checkCombatEnd(enemyHp, playerHpAfter);
+    if (isEnded) return;
+
     // Calculate player damage
     const damage = getAttackDamage();
     const actualDamage = Math.max(1, damage - enemy.defense);
@@ -127,43 +214,74 @@ export default function Combat() {
     setEnemyHp(newEnemyHp);
     addLog(`You attacked for ${actualDamage} damage!`, 'player');
 
-    const isEnded = await checkCombatEnd(newEnemyHp, profile.hp);
+    isEnded = await checkCombatEnd(newEnemyHp, playerHpAfter);
     if (!isEnded) {
       handleEnemyTurn(newEnemyHp);
     }
   };
 
-  const handlePlayerSkill = async () => {
-    if (turn !== 'player' || isFinished || !enemy || skillCooldown > 0) return;
-    setTurn('enemy');
-    setSkillCooldown(3);
-
-    let damage = getAttackDamage();
-    let skillName = '';
+  const handleUseSkill = async (skill: SkillTemplate) => {
+    if (turn !== 'player' || isFinished || !enemy || (playerCooldowns[skill.id] || 0) > 0) return;
     
-    if (profile.character_class === 'warrior') {
-      skillName = 'Cleave';
-      damage = Math.floor(damage * 1.5);
-    } else if (profile.character_class === 'rogue') {
-      skillName = 'Backstab';
-      const hits = Math.random() > 0.2; // 80% chance
-      if (!hits) {
-        addLog(`You attempted to Backstab but missed!`, 'player');
-        handleEnemyTurn(enemyHp);
-        return;
-      }
-      damage = Math.floor(damage * 2.0);
-    } else if (profile.character_class === 'mage') {
-      skillName = 'Fireball';
-      damage = Math.floor(damage * 1.0 + profile.intelligence * 1.5); // ignores defense basically
+    if (!spendEnergy(skill.energy_cost)) {
+      addLog(`Not enough energy to use ${skill.name}.`, 'system');
+      return;
     }
 
-    const actualDamage = Math.max(1, damage - (profile.character_class === 'mage' ? 0 : enemy.defense));
-    const newEnemyHp = Math.max(0, enemyHp - actualDamage);
-    setEnemyHp(newEnemyHp);
-    addLog(`You used ${skillName} for ${actualDamage} damage!`, 'player');
+    setTurn('enemy');
+    setPlayerCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown_turns }));
 
-    const isEnded = await checkCombatEnd(newEnemyHp, profile.hp);
+    const playerHpAfter = await processStatuses('player', profile.hp);
+    let isEnded = await checkCombatEnd(enemyHp, playerHpAfter);
+    if (isEnded) return;
+
+    let newEnemyHp = enemyHp;
+
+    if (skill.effect_type === 'damage') {
+      let damage = getAttackDamage();
+      if (skill.class_req === 'mage') {
+        damage = profile.intelligence * 2; // Mage spells scale mostly off Int
+      }
+      const actualDamage = Math.floor(Math.max(1, (damage * skill.base_value) - enemy.defense));
+      newEnemyHp = Math.max(0, enemyHp - actualDamage);
+      setEnemyHp(newEnemyHp);
+      addLog(`You used ${skill.name} for ${actualDamage} damage!`, 'player');
+
+    } else if (skill.effect_type === 'heal') {
+      const healAmount = Math.floor(skill.base_value + (profile.intelligence * 1.5));
+      healDamage(healAmount);
+      addLog(`You used ${skill.name} and healed for ${healAmount} HP!`, 'heal');
+
+    } else if (skill.effect_type === 'buff') {
+      addLog(`You cast ${skill.name}!`, 'buff');
+      setPlayerStatuses(prev => {
+        const existing = prev.findIndex(s => s.id === skill.id);
+        if (existing > -1) {
+          const next = [...prev];
+          next[existing].duration = skill.duration!;
+          return next;
+        }
+        return [...prev, { id: skill.id, name: skill.name, type: 'buff', duration: skill.duration!, value: skill.base_value }];
+      });
+
+    } else if (skill.effect_type === 'dot') {
+      const initialDamage = Math.floor(getAttackDamage() * 0.5);
+      newEnemyHp = Math.max(0, enemyHp - initialDamage);
+      setEnemyHp(newEnemyHp);
+      addLog(`You struck with ${skill.name} for ${initialDamage} damage and poisoned the enemy!`, 'player');
+      
+      setEnemyStatuses(prev => {
+        const existing = prev.findIndex(s => s.id === skill.id);
+        if (existing > -1) {
+          const next = [...prev];
+          next[existing].duration = skill.duration!;
+          return next;
+        }
+        return [...prev, { id: skill.id, name: skill.name, type: 'dot', duration: skill.duration!, value: skill.base_value }];
+      });
+    }
+
+    isEnded = await checkCombatEnd(newEnemyHp, profile.hp); // profile.hp is a little stale if we just healed, but checkCombatEnd only checks <= 0
     if (!isEnded) {
       handleEnemyTurn(newEnemyHp);
     }
@@ -181,7 +299,7 @@ export default function Combat() {
     const result = consumeItem(potion.id);
     if (result.success) {
       addLog(`You drank a Health Potion. +25 HP`, 'heal');
-      // Using potion DOES NOT take a turn, but we could make it take a turn. Let's be nice and not consume the turn.
+      // Free action!
     } else {
       addLog(result.message, 'system');
     }
@@ -202,7 +320,7 @@ export default function Combat() {
         navigate(-1);
       }, 1500);
     } else {
-      addLog('You failed to flee!', 'system');
+      addLog('You failed to flee!', 'danger');
       setTurn('enemy');
       handleEnemyTurn(enemyHp);
     }
@@ -210,120 +328,164 @@ export default function Combat() {
 
   if (!enemy) return null;
 
-  const potionCount = inventory.find(i => i.item_id === 'minor_health_potion')?.quantity || 0;
-
   return (
-    <div className="animate-fade-in flex flex-col h-[80vh] text-stone-300">
+    <div className="flex flex-col h-[85vh] animate-fade-in text-stone-300 relative z-10 p-2 sm:p-4 md:p-8">
       
-      {/* Header */}
       <div className="flex justify-between items-center border-b-2 border-stone-800 pb-2 mb-4 shrink-0">
         <div>
-          <h1 className="text-3xl font-cinzel text-red-700 drop-shadow-sm flex items-center gap-2">
-            <ShieldAlert /> Combat
+          <h1 className="text-2xl md:text-3xl font-cinzel text-red-700 drop-shadow-sm flex items-center gap-2">
+            <Sword size={24} className="text-red-900" /> Combat Encounter
           </h1>
+          <p className="text-sm font-sans text-stone-500 italic">Fight for your life.</p>
         </div>
-        <button onClick={() => navigate(-1)} disabled={!isFinished} className="flex items-center gap-2 px-4 py-2 bg-stone-900 border border-stone-700 text-stone-500 rounded text-sm disabled:opacity-50">
-          <ArrowLeft size={16} /> Run Away
-        </button>
       </div>
 
-      {/* Battle Arena */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden">
         
-        {/* Stage */}
-        <div className="w-full lg:w-2/3 flex flex-col gap-6">
+        {/* Arena View */}
+        <div className="flex-1 flex flex-col gap-4 overflow-hidden relative">
           
-          <div className="flex-1 bg-stone-950 rounded-lg border border-stone-800 p-6 flex items-center justify-between relative shadow-[inset_0_0_50px_rgba(0,0,0,1)] bg-cover bg-center"
-               style={{ backgroundImage: `linear-gradient(rgba(12, 10, 9, 0.8), rgba(12, 10, 9, 0.8)), url('${enemy.image_url}')` }}
-          >
-            {/* Player Sprite */}
-            <div className="flex flex-col items-center gap-2 z-10 w-32">
-              <div className={`w-24 h-24 rounded-full border-4 ${turn === 'player' ? 'border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)]' : 'border-stone-700'} overflow-hidden transition-all duration-300`}>
-                <img src={`/images/avatars/${profile.character_class}_${profile.gender}.png`} alt="Player" className="w-full h-full object-cover" />
+          <div className="flex-1 bg-stone-900/50 border border-stone-800 rounded relative overflow-hidden flex flex-col">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-900/10 to-transparent pointer-events-none" />
+            
+            {/* Status Headers */}
+            <div className="flex justify-between p-4 bg-stone-950/80 border-b border-stone-800 z-10 shrink-0">
+              {/* Player HP */}
+              <div className="flex flex-col gap-1 w-1/3">
+                <span className="font-cinzel text-stone-300 font-bold">{profile.username}</span>
+                <div className="w-full bg-stone-800 h-3 rounded overflow-hidden border border-stone-700">
+                  <div className="bg-green-600 h-full transition-all duration-300" style={{ width: `${Math.max(0, (profile.hp / profile.max_hp) * 100)}%` }} />
+                </div>
+                <div className="flex justify-between text-xs text-stone-400">
+                  <span>HP: {profile.hp}/{profile.max_hp}</span>
+                  <span className="flex items-center gap-1 text-blue-400"><Zap size={10} /> {profile.energy}</span>
+                </div>
+                {/* Active Player Statuses */}
+                <div className="flex gap-1 mt-1 flex-wrap">
+                  {playerStatuses.map(s => (
+                    <span key={s.id} className={`text-[10px] px-1 rounded border ${s.type === 'buff' ? 'border-blue-700 bg-blue-900/50 text-blue-300' : 'border-green-700 bg-green-900/50 text-green-300'}`}>
+                      {s.name} ({s.duration})
+                    </span>
+                  ))}
+                </div>
               </div>
-              <div className="w-full bg-stone-900 h-3 rounded-full border border-stone-700 overflow-hidden relative">
-                <div className="bg-red-600 h-full transition-all duration-300" style={{ width: `${(profile.hp / profile.max_hp) * 100}%` }}></div>
-                <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white drop-shadow">{profile.hp}/{profile.max_hp}</span>
-              </div>
-            </div>
 
-            <div className="text-stone-500 font-cinzel text-xl font-bold italic absolute left-1/2 -translate-x-1/2">VS</div>
-
-            {/* Enemy Sprite */}
-            <div className="flex flex-col items-center gap-2 z-10 w-32">
-              <div className={`w-24 h-24 rounded-full border-4 ${turn === 'enemy' ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'border-stone-700'} overflow-hidden transition-all duration-300`}>
-                <img src={enemy.image_url} alt="Enemy" className="w-full h-full object-cover" />
+              <div className="flex items-center justify-center font-cinzel text-stone-500 text-xl font-bold px-4">
+                VS
               </div>
-              <div className="text-center w-full">
-                <p className="text-xs font-bold text-red-400 mb-1">{enemy.name}</p>
-                <div className="w-full bg-stone-900 h-3 rounded-full border border-stone-700 overflow-hidden relative">
-                  <div className="bg-red-600 h-full transition-all duration-300" style={{ width: `${(enemyHp / enemy.max_hp) * 100}%` }}></div>
-                  <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white drop-shadow">{enemyHp}/{enemy.max_hp}</span>
+
+              {/* Enemy HP */}
+              <div className="flex flex-col gap-1 w-1/3 items-end">
+                <span className="font-cinzel text-red-500 font-bold text-right">{enemy.name}</span>
+                <div className="w-full bg-stone-800 h-3 rounded overflow-hidden border border-stone-700">
+                  <div className="bg-red-600 h-full transition-all duration-300" style={{ width: `${Math.max(0, (enemyHp / enemy.max_hp) * 100)}%` }} />
+                </div>
+                <span className="text-xs text-stone-400">HP: {enemyHp}/{enemy.max_hp}</span>
+                {/* Active Enemy Statuses */}
+                <div className="flex gap-1 mt-1 flex-wrap justify-end">
+                  {enemyStatuses.map(s => (
+                    <span key={s.id} className={`text-[10px] px-1 rounded border ${s.type === 'dot' ? 'border-green-700 bg-green-900/50 text-green-300' : 'border-stone-700 bg-stone-900/50 text-stone-300'}`}>
+                      {s.name} ({s.duration})
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Action Bar */}
-          <div className="bg-stone-900 p-4 border border-stone-800 rounded grid grid-cols-2 sm:grid-cols-4 gap-4 shrink-0">
-            <button 
-              onClick={handlePlayerAttack} disabled={turn !== 'player' || isFinished}
-              className="flex flex-col items-center gap-2 p-3 bg-stone-950 border border-stone-700 rounded hover:border-amber-500 hover:text-amber-500 disabled:opacity-50 disabled:hover:border-stone-700 disabled:hover:text-stone-300 transition-colors"
-            >
-              <Sword size={20} /> <span className="text-sm font-bold">Attack</span>
-            </button>
-
-            <button 
-              onClick={handlePlayerSkill} disabled={turn !== 'player' || isFinished || skillCooldown > 0}
-              className="flex flex-col items-center gap-2 p-3 bg-stone-950 border border-stone-700 rounded hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:hover:border-stone-700 disabled:hover:text-stone-300 transition-colors relative"
-            >
-              {profile.character_class === 'warrior' && <Sword size={20} />}
-              {profile.character_class === 'rogue' && <Wind size={20} />}
-              {profile.character_class === 'mage' && <Flame size={20} />}
-              <span className="text-sm font-bold">
-                {profile.character_class === 'warrior' ? 'Cleave' : profile.character_class === 'rogue' ? 'Backstab' : 'Fireball'}
-              </span>
-              {skillCooldown > 0 && <span className="absolute top-1 right-2 text-xs text-blue-400 font-bold">{skillCooldown}</span>}
-            </button>
-
-            <button 
-              onClick={handleUsePotion} disabled={turn !== 'player' || isFinished || potionCount <= 0}
-              className="flex flex-col items-center gap-2 p-3 bg-stone-950 border border-stone-700 rounded hover:border-green-500 hover:text-green-500 disabled:opacity-50 disabled:hover:border-stone-700 disabled:hover:text-stone-300 transition-colors relative"
-            >
-              <FlaskConical size={20} /> <span className="text-sm font-bold">Potion</span>
-              <span className="absolute top-1 right-2 text-xs font-bold bg-stone-800 px-1 rounded border border-stone-700 text-stone-400">{potionCount}</span>
-            </button>
-
-            <button 
-              onClick={handleFlee} disabled={turn !== 'player' || isFinished || profile.energy < 10}
-              className="flex flex-col items-center gap-2 p-3 bg-stone-950 border border-stone-700 rounded hover:border-stone-500 hover:text-stone-400 disabled:opacity-50 disabled:hover:border-stone-700 disabled:hover:text-stone-300 transition-colors"
-            >
-              <ArrowLeft size={20} /> <span className="text-sm font-bold">Flee (-10E)</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Combat Log */}
-        <div className="w-full lg:w-1/3 bg-stone-950/90 rounded border border-stone-800 p-4 shadow-inner flex flex-col min-h-[250px]">
-          <h2 className="font-cinzel text-stone-400 border-b border-stone-800 pb-2 mb-2 shrink-0">Battle Log</h2>
-          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-            {logs.map((log) => (
-              <div 
-                key={log.id} 
-                className={`text-sm p-2 rounded bg-stone-900/50 border-l-2 animate-fade-in
-                  ${log.type === 'system' ? 'border-stone-600 text-stone-400' : ''}
-                  ${log.type === 'player' ? 'border-amber-500 text-amber-400' : ''}
-                  ${log.type === 'enemy' ? 'border-red-600 text-red-400' : ''}
-                  ${log.type === 'heal' ? 'border-green-500 text-green-400' : ''}
-                  ${log.type === 'loot' ? 'border-blue-500 text-blue-400 font-bold' : ''}
-                `}
-              >
-                {log.text}
+            {/* Combat Logs */}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-2 custom-scrollbar">
+              {logs.map(log => (
+                <div key={log.id} className={`p-2 rounded text-sm animate-fade-in border-l-2
+                  ${log.type === 'system' ? 'bg-stone-950 border-stone-600 text-stone-400' : ''}
+                  ${log.type === 'player' ? 'bg-stone-900 border-green-600 text-stone-200' : ''}
+                  ${log.type === 'enemy' ? 'bg-red-950/30 border-red-800 text-red-300' : ''}
+                  ${log.type === 'heal' ? 'bg-green-950/30 border-green-500 text-green-400 font-bold' : ''}
+                  ${log.type === 'buff' ? 'bg-blue-950/30 border-blue-500 text-blue-400' : ''}
+                  ${log.type === 'danger' ? 'bg-red-950 border-red-600 text-red-400 font-bold' : ''}
+                  ${log.type === 'loot' ? 'bg-amber-950/30 border-amber-500 text-amber-500 font-bold' : ''}
+                `}>
+                  {log.text}
+                </div>
+              ))}
+            </div>
+            
+            {/* Action Bar */}
+            <div className="bg-stone-950 border-t border-stone-800 p-4 shrink-0">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-cinzel text-amber-500 font-bold">Actions</span>
+                <span className={`text-xs font-bold uppercase tracking-widest px-2 py-1 rounded ${turn === 'player' ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-red-900/30 text-red-400 border border-red-800'}`}>
+                  {turn === 'player' ? 'Your Turn' : 'Enemy Turn...'}
+                </span>
               </div>
-            ))}
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button 
+                  onClick={handlePlayerAttack}
+                  disabled={turn !== 'player' || isFinished}
+                  className="bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-red-800 text-stone-300 p-3 rounded flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+                >
+                  <Sword size={20} className="text-stone-500 group-hover:text-red-500 transition-colors" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Attack</span>
+                </button>
+                
+                {availableSkills.map(skill => {
+                  const cooldown = playerCooldowns[skill.id] || 0;
+                  const isAvailable = cooldown === 0 && profile.energy >= skill.energy_cost;
+                  
+                  return (
+                    <button 
+                      key={skill.id}
+                      onClick={() => handleUseSkill(skill)}
+                      disabled={turn !== 'player' || isFinished || !isAvailable}
+                      className="bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-blue-800 text-stone-300 p-2 rounded flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group relative"
+                      title={skill.description}
+                    >
+                      {skill.effect_type === 'damage' ? <Flame size={16} className="text-orange-500" /> :
+                       skill.effect_type === 'heal' ? <Droplet size={16} className="text-green-500" /> :
+                       skill.effect_type === 'buff' ? <ShieldAlert size={16} className="text-blue-500" /> :
+                       <Wind size={16} className="text-purple-500" />}
+                      <span className="text-[10px] font-bold uppercase tracking-wider leading-tight text-center">{skill.name}</span>
+                      <span className="text-[9px] text-blue-400 flex items-center gap-0.5"><Zap size={8}/>{skill.energy_cost}</span>
+                      
+                      {cooldown > 0 && (
+                        <div className="absolute inset-0 bg-stone-950/80 flex items-center justify-center rounded border border-stone-800">
+                          <span className="text-xl font-bold text-red-500 drop-shadow">{cooldown}</span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+
+                <button 
+                  onClick={handleUsePotion}
+                  disabled={turn !== 'player' || isFinished}
+                  className="bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-green-800 text-stone-300 p-2 rounded flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group relative"
+                >
+                  <FlaskConical size={16} className="text-stone-500 group-hover:text-green-500 transition-colors" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Potion</span>
+                  <span className="text-[9px] text-stone-500">Free Action</span>
+                  
+                  {/* Potion Badge */}
+                  <div className="absolute -top-1 -right-1 bg-green-900 text-green-100 text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-green-700">
+                    {inventory.find(i => i.item_id === 'minor_health_potion')?.quantity || 0}
+                  </div>
+                </button>
+
+                <button 
+                  onClick={handleFlee}
+                  disabled={turn !== 'player' || isFinished}
+                  className="bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-stone-500 text-stone-300 p-2 rounded flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group col-span-2 sm:col-span-1"
+                >
+                  <Wind size={16} className="text-stone-500 group-hover:text-stone-300 transition-colors" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Flee</span>
+                  <span className="text-[9px] text-blue-400 flex items-center gap-0.5"><Zap size={8}/> 10</span>
+                </button>
+
+              </div>
+            </div>
+
           </div>
         </div>
-
       </div>
     </div>
   );

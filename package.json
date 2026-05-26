@@ -1,17 +1,19 @@
 {
   "name": "oakhaven-game",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync-items": "npx tsx scripts/sync-items.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
     "@tailwindcss/vite": "^4.3.0",
+    "dotenv": "^16.6.1",
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
