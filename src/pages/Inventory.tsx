@@ -4,7 +4,7 @@ import type { ItemSlot } from '../types';
 import ItemTooltip from '../components/inventory/ItemTooltip';
 
 export default function Inventory() {
-  const { inventory } = useGame();
+  const { inventory, consumeItem, toggleEquipItem } = useGame();
 
   const equippedItems = inventory.filter(i => i.is_equipped);
   const backpackItems = inventory.filter(i => !i.is_equipped && !i.is_banked);
@@ -13,10 +13,16 @@ export default function Inventory() {
   const renderSlot = (slot: ItemSlot) => {
     const equipped = equippedItems.find(i => i.item?.slot === slot);
     
+    const handleUnequip = () => {
+      if (equipped) toggleEquipItem(equipped.id);
+    };
+    
     return (
       <div key={slot} className="flex flex-col gap-1 items-center z-10 hover:z-50">
         <span className="text-[10px] font-cinzel text-amber-700 uppercase tracking-wider bg-stone-950/80 px-1 rounded">{slot}</span>
-        <div className={`w-16 h-16 rounded border flex items-center justify-center cursor-pointer transition-colors shadow-inner ${
+        <div 
+          onClick={handleUnequip}
+          className={`w-16 h-16 rounded border flex items-center justify-center cursor-pointer transition-colors shadow-inner ${
           equipped 
           ? 'bg-stone-800 border-amber-600 hover:bg-stone-700' 
           : 'bg-stone-900 border-stone-700 opacity-80 hover:opacity-100'
@@ -79,7 +85,17 @@ export default function Inventory() {
 
         <div className="grid grid-cols-5 md:grid-cols-10 gap-3">
           {backpackItems.map((invItem) => (
-            <div key={invItem.id} className="aspect-square bg-stone-800 border border-stone-600 rounded flex flex-col items-center justify-center relative cursor-pointer hover:border-amber-500 group transition-colors shadow-sm hover:z-50">
+            <div 
+              key={invItem.id} 
+              onClick={() => {
+                if (invItem.item?.type === 'consumable') {
+                  consumeItem(invItem.id);
+                } else if (invItem.item?.type === 'equipment') {
+                  toggleEquipItem(invItem.id);
+                }
+              }}
+              className="aspect-square bg-stone-800 border border-stone-600 rounded flex flex-col items-center justify-center relative cursor-pointer hover:border-amber-500 group transition-colors shadow-sm hover:z-50"
+            >
                <Package size={24} className="text-stone-400 group-hover:text-amber-500" />
                <span className="absolute bottom-1 right-1 text-[10px] font-sans text-stone-400 font-bold bg-stone-950/80 px-1 rounded">x{invItem.quantity}</span>
                

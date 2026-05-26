@@ -1,174 +1,98 @@
-import { useState } from 'react';
-import { Leaf, Sword, Skull, Search, ArrowLeft } from 'lucide-react';
-import { useGame } from '../contexts/GameContext';
 import { useNavigate } from 'react-router-dom';
 
-interface LogEntry {
-  id: number;
-  text: string;
-  type: 'neutral' | 'success' | 'danger' | 'loot';
-}
+import { getQuestsByLocation } from '../data/quests';
+import { ArrowLeft, Zap, Coins, ArrowRight, Skull, Swords } from 'lucide-react';
 
 export default function Shadowwood() {
-  const { profile, spendEnergy, takeDamage, addGold, addXp, changeLocation } = useGame();
+
   const navigate = useNavigate();
-  const [logs, setLogs] = useState<LogEntry[]>([
-    { id: 0, text: 'You step into the cold, oppressive fog of The Shadowwood...', type: 'neutral' }
-  ]);
 
-  const addLog = (text: string, type: LogEntry['type']) => {
-    setLogs(prev => [{ id: Date.now(), text, type }, ...prev]);
-  };
-
-  const handleForage = () => {
-    if (!spendEnergy(5)) {
-      addLog('Not enough energy to forage.', 'danger');
-      return;
-    }
-    const roll = Math.random();
-    if (roll > 0.6) {
-      addGold(15);
-      addXp(10);
-      addLog('You found some rare Bloodweed! Sold for 15 Gold.', 'success');
-    } else {
-      addXp(5);
-      addLog('You spent hours searching but only found common roots.', 'neutral');
-    }
-  };
-
-  const handleHunt = () => {
-    if (profile.energy < 10) {
-      addLog('Not enough energy to hunt.', 'danger');
-      return;
-    }
-    if (!spendEnergy(10)) return;
-    
-    navigate('/play/combat/feral_wolf');
-  };
-
-  const handleExploreRuins = () => {
-    if (!spendEnergy(30)) {
-      addLog('You are too exhausted to delve into the ruins.', 'danger');
-      return;
-    }
-    const successChance = 0.3 + (profile.intelligence * 0.02);
-    const roll = Math.random();
-    
-    if (roll < successChance) {
-      addXp(150);
-      addGold(100);
-      addLog('You successfully navigated the traps in the Forgotten Ruins and found a hidden chest! Gained 150 XP and 100 Gold.', 'loot');
-    } else {
-      takeDamage(40);
-      addLog('You triggered an ancient trap in the ruins! You took a massive 40 HP damage and fled.', 'danger');
-    }
-  };
+  const quests = getQuestsByLocation('shadowwood');
 
   const returnHome = () => {
-    changeLocation('oakhaven');
     navigate('/travel');
   };
 
   return (
-    <div className="animate-fade-in flex flex-col gap-6 h-full text-stone-300">
+    <div className="animate-fade-in flex flex-col gap-6 lg:h-[80vh]">
       
       {/* Header */}
-      <div className="flex justify-between items-center border-b-2 border-stone-800 pb-2 mb-2">
+      <div className="flex justify-between items-center border-b-2 border-stone-800 pb-2 mb-2 shrink-0">
         <div>
           <h1 className="text-3xl font-cinzel text-green-700 drop-shadow-sm">The Shadowwood</h1>
           <p className="text-sm font-sans text-stone-500 italic">The trees are whispering your name...</p>
         </div>
         <button 
           onClick={returnHome}
-          className="flex items-center gap-2 px-4 py-2 bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-amber-700 text-stone-400 hover:text-amber-500 rounded transition-colors text-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-green-700 text-stone-400 hover:text-green-500 rounded transition-colors text-sm"
         >
-          <ArrowLeft size={16} /> Return to Travel Hub
+          <ArrowLeft size={16} /> Travel Hub
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-        
-        {/* Actions Panel */}
-        <div className="flex flex-col gap-4">
-          <h2 className="font-cinzel text-xl text-stone-400 border-b border-stone-800 pb-2">Zone Actions</h2>
-          
-          <button 
-            onClick={handleForage}
-            disabled={profile.energy < 5}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-stone-950/80 border border-stone-800 hover:border-green-800 rounded group transition-all text-left"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-stone-900 rounded group-hover:bg-green-900/30">
-                <Leaf className="text-green-600 group-hover:text-green-500" size={24} />
+      {/* Quests Grid */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {quests.map(quest => (
+            <div key={quest.id} className="bg-stone-900 rounded border border-stone-700 shadow-sm relative overflow-hidden group flex flex-col h-full hover:border-green-700 transition-colors">
+              {/* Difficulty indicator */}
+              <div className={`absolute top-0 right-0 w-2 h-full z-10 ${
+                quest.difficulty === 'Easy' ? 'bg-green-600' :
+                quest.difficulty === 'Medium' ? 'bg-amber-500' : 
+                quest.difficulty === 'Hard' ? 'bg-orange-600' : 'bg-red-700'
+              }`} />
+              
+              {/* Card Image Banner */}
+              <div className="h-32 relative w-full border-b border-stone-800 bg-stone-950 flex items-center justify-center">
+                {/* Fallback pattern since we don't have images for all biome quests yet */}
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-green-900 to-transparent"></div>
+                <h3 className="font-cinzel font-bold text-green-500 text-xl drop-shadow-md z-10 text-center px-4">{quest.title}</h3>
+                
+                {quest.type === 'encounter' && (
+                  <div className="absolute top-2 right-4 z-10">
+                    <span className="bg-purple-950 border border-purple-800 text-purple-200 text-[10px] uppercase px-2 py-1 rounded flex items-center gap-1 font-bold shadow-md">
+                      <Swords size={12}/> Encounter
+                    </span>
+                  </div>
+                )}
+                {quest.difficulty === 'Boss' && (
+                  <div className="absolute top-2 right-4 z-10">
+                    <span className="bg-red-900 border border-red-800 text-red-100 text-[10px] uppercase px-2 py-1 rounded flex items-center gap-1 font-bold shadow-md">
+                      <Skull size={12}/> Boss
+                    </span>
+                  </div>
+                )}
               </div>
-              <div>
-                <h3 className="font-bold text-stone-300 group-hover:text-green-400">Forage for Herbs</h3>
-                <p className="text-xs text-stone-500">Search the undergrowth for valuable Bloodweed.</p>
+              
+              {/* Card Content */}
+              <div className="p-4 flex-1 flex flex-col relative z-20 bg-stone-900">
+                <p className="font-sans text-stone-400 text-sm mb-6 leading-relaxed line-clamp-3">{quest.description}</p>
+                
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-auto pt-4 border-t border-stone-800">
+                  <div className="flex flex-wrap gap-2 font-sans text-xs font-bold">
+                    {quest.energy_cost > 0 && (
+                      <span className="flex items-center gap-1 text-blue-400 bg-blue-950/30 border border-blue-900 px-2 py-1 rounded">
+                        <Zap size={14} /> -{quest.energy_cost}
+                      </span>
+                    )}
+                    {quest.type !== 'encounter' && (
+                      <span className="flex items-center gap-1 text-amber-500 bg-amber-950/30 border border-amber-900 px-2 py-1 rounded">
+                        <Coins size={14} /> {quest.reward_gold[0]}-{quest.reward_gold[1]}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <button 
+                    onClick={() => navigate(`/play/quest/${quest.id}`)}
+                    className="w-full sm:w-auto bg-stone-950 text-green-500 font-cinzel font-bold text-sm px-4 py-2 rounded border border-stone-700 hover:border-green-500 transition-colors shadow-md flex items-center justify-center gap-2"
+                  >
+                    Details <ArrowRight size={16} />
+                  </button>
+                </div>
               </div>
             </div>
-            <span className="text-blue-400 text-sm font-bold mt-2 sm:mt-0">-5 Energy</span>
-          </button>
-
-          <button 
-            onClick={handleHunt}
-            disabled={profile.energy < 15}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-stone-950/80 border border-stone-800 hover:border-red-900/50 rounded group transition-all text-left"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-stone-900 rounded group-hover:bg-red-900/30">
-                <Sword className="text-stone-500 group-hover:text-red-400" size={24} />
-              </div>
-              <div>
-                <h3 className="font-bold text-stone-300 group-hover:text-red-400">Hunt Feral Wolves</h3>
-                <p className="text-xs text-stone-500">Track and fight the dangerous beasts of the woods.</p>
-              </div>
-            </div>
-            <span className="text-blue-400 text-sm font-bold mt-2 sm:mt-0">-10 Energy</span>
-          </button>
-
-          <button 
-            onClick={handleExploreRuins}
-            disabled={profile.energy < 30}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-stone-950/80 border border-stone-800 hover:border-amber-700 rounded group transition-all text-left"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-stone-900 rounded group-hover:bg-amber-900/30">
-                <Skull className="text-stone-500 group-hover:text-amber-500" size={24} />
-              </div>
-              <div>
-                <h3 className="font-bold text-stone-300 group-hover:text-amber-500">Explore Ruins</h3>
-                <p className="text-xs text-stone-500">High risk, high reward. Rely on your intelligence to avoid traps.</p>
-              </div>
-            </div>
-            <span className="text-blue-400 text-sm font-bold mt-2 sm:mt-0">-30 Energy</span>
-          </button>
+          ))}
         </div>
-
-        {/* Action Log */}
-        <div className="flex flex-col gap-4 bg-stone-950/90 rounded border border-stone-800 p-4 shadow-inner max-h-[400px]">
-          <div className="flex items-center justify-between border-b border-stone-800 pb-2">
-            <h2 className="font-cinzel text-stone-400 flex items-center gap-2">
-              <Search size={16} /> Exploration Log
-            </h2>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-            {logs.map((log) => (
-              <div 
-                key={log.id} 
-                className={`text-sm p-2 rounded bg-stone-900/50 border-l-2 animate-fade-in
-                  ${log.type === 'neutral' ? 'border-stone-600 text-stone-400' : ''}
-                  ${log.type === 'success' ? 'border-green-600 text-green-400' : ''}
-                  ${log.type === 'danger' ? 'border-red-600 text-red-400' : ''}
-                  ${log.type === 'loot' ? 'border-amber-500 text-amber-500 font-bold' : ''}
-                `}
-              >
-                {log.text}
-              </div>
-            ))}
-          </div>
-        </div>
-
       </div>
     </div>
   );

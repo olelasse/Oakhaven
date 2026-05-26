@@ -18,6 +18,7 @@ interface GameState {
   upgradeItem: (inventoryId: string) => { success: boolean, message: string };
   sellItem: (inventoryId: string) => { success: boolean, message: string };
   consumeItem: (inventoryId: string) => { success: boolean, message: string };
+  toggleEquipItem: (inventoryId: string) => { success: boolean, message: string };
   getAttackDamage: () => number;
   addItemToInventory: (itemId: string, quantity: number) => Promise<boolean>;
   incrementDailyQuest: () => void;
@@ -227,16 +228,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const addGold = (amount: number) => {
     if (!profile) return;
-    const newGold = profile.gold + amount;
-    setProfile({ ...profile, gold: newGold });
-    supabase.from('profiles').update({ gold: newGold }).eq('id', profile.id).then();
+    updateProfile({ gold: profile.gold + amount });
   };
 
   const removeGold = (amount: number) => {
     if (!profile) return;
-    const newGold = Math.max(0, profile.gold - amount);
-    setProfile({ ...profile, gold: newGold });
-    supabase.from('profiles').update({ gold: newGold }).eq('id', profile.id).then();
+    updateProfile({ gold: Math.max(0, profile.gold - amount) });
   };
 
   const depositGold = (amount: number) => {
@@ -367,18 +364,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   const takeDamage = (amount: number) => {
-    if (!profile) return;
-    const newHp = Math.max(0, profile.hp - amount);
-    
-    if (newHp === 0) {
-      // Death Penalty
-      const goldPenalty = Math.floor(profile.gold * 0.1);
-      const resHp = Math.max(1, Math.floor(profile.max_hp * 0.1));
-      logAction(`You died! Lost ${goldPenalty} Gold and awakened in Oakhaven.`, 'danger');
-      updateProfile({ hp: resHp, gold: Math.max(0, profile.gold - goldPenalty), current_location: 'oakhaven' });
-    } else {
-      updateProfile({ hp: newHp });
-    }
+    setProfile(p => {
+      if (!p) return null;
+      const newHp = Math.max(0, p.hp - amount);
+      
+      if (newHp === 0) {
+        // Death Penalty
+        const goldPenalty = Math.floor(p.gold * 0.1);
+        const resHp = Math.max(1, Math.floor(p.max_hp * 0.1));
+        logAction(`You died! Lost ${goldPenalty} Gold and awakened in Oakhaven.`, 'danger');
+        
+        const updates = { hp: resHp, gold: Math.max(0, p.gold - goldPenalty), current_location: 'oakhaven' };
+        supabase.from('profiles').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', p.id).then();
+        return { ...p, ...updates };
+      } else {
+        supabase.from('profiles').update({ hp: newHp, updated_at: new Date().toISOString() }).eq('id', p.id).then();
+        return { ...p, hp: newHp };
+      }
+    });
   };
 
   const changeLocation = (locationId: string) => {
@@ -481,6 +484,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
       result.success = true;
       return newInv;
     });
+    return result;
+  };
+
+  const toggleEquipItem = (inventoryId: string) => {
+    let result = { success: false, message: '' };
+    if (!profile) return result;
+
+    setInventory(prev => {
+      const newInv = [...prev];
+      const targetIndex = newInv.findIndex(i => i.id === inventoryId);
+      if (targetIndex === -1) { result.message = 'Item not found.'; return prev; }
+      
+      const targetItem = newInv[targetIndex];
+      if (!targetItem.item || targetItem.item.type !== 'equipment') { result.message = 'Item cannot be equipped.'; return prev; }
+
+      const isEquipping = !targetItem.is_equipped;
+
+      if (isEquipping) {
+        // Find existing equipped item in same slot and unequip it
+        const existingIndex = newInv.findIndex(i => i.is_equipped && i.item?.slot === targetItem.item?.slot);
+        if (existingIndex !== -1) {
+          newInv[existingIndex] = { ...newInv[existingIndex], is_equipped: false };
+          supabase.from('inventory').update({ is_equipped: false }).eq('id', newInv[existingIndex].id).then();
+        }
+      }
+
+      newInv[targetIndex] = { ...targetItem, is_equipped: isEquipping };
+      supabase.from('inventory').update({ is_equipped: isEquipping }).eq('id', inventoryId).then();
+      
+      result = { success: true, message: isEquipping ? 'Item equipped.' : 'Item unequipped.' };
+      return newInv;
+    });
+
     return result;
   };
 
@@ -607,7 +643,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const fallbackProfile = {} as Profile;
 
   return (
-    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, getAttackDamage, addItemToInventory, incrementDailyQuest, completeTutorial, logAction, depositGold, withdrawGold, transferItem, buyMarketplaceItem, buyDailyDeal }}>
+    <GameContext.Provider value={{ profile: profile || fallbackProfile, inventory, nextEnergyTick, addGold, removeGold, addXp, spendEnergy, takeDamage, changeLocation, upgradeItem, sellItem, consumeItem, toggleEquipItem, getAttackDamage, addItemToInventory, incrementDailyQuest, completeTutorial, logAction, depositGold, withdrawGold, transferItem, buyMarketplaceItem, buyDailyDeal }}>
       {children}
     </GameContext.Provider>
   );

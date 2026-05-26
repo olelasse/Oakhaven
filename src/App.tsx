@@ -16,6 +16,7 @@ import AuctionHouse from './pages/AuctionHouse';
 import Bank from './pages/Bank';
 import CharacterCreation from './pages/CharacterCreation';
 import Combat from './pages/Combat';
+import QuestBriefing from './pages/QuestBriefing';
 
 const Home = () => (
   <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-fade-in">
@@ -48,6 +49,7 @@ function App() {
             <Route path="profile" element={<Profile />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="quests" element={<GuildBoard />} />
+            <Route path="quest/:questId" element={<QuestBriefing />} />
             <Route path="travel" element={<TravelHub />} />
             <Route path="zones/shadowwood" element={<Shadowwood />} />
             <Route path="zones/frostpeak" element={<Frostpeak />} />
