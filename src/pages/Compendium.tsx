@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { ITEM_DATABASE } from '../data/items';
 import { ArrowLeft, Search, Filter, Shield, Sword, FlaskConical, CircleDot } from 'lucide-react';
 
+import type { Item } from '../types';
+
 export default function Compendium() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
 
-  const filteredItems = ITEM_DATABASE.filter(item => {
+  const filteredItems = Object.values(ITEM_DATABASE).filter((item: Item) => {
     if (filterType !== 'all' && item.type !== filterType) return false;
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -85,7 +87,7 @@ export default function Compendium() {
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pb-10">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredItems.map(item => (
+          {filteredItems.map((item: Item) => (
             <div key={item.id} className="bg-stone-900/80 border border-stone-800 hover:border-blue-900/50 rounded p-4 flex flex-col gap-2 transition-colors">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
@@ -102,10 +104,10 @@ export default function Compendium() {
               <p className="text-xs text-stone-400 italic mb-2 leading-relaxed h-10 line-clamp-2">{item.description}</p>
               
               <div className="mt-auto grid grid-cols-2 gap-2 text-xs border-t border-stone-800 pt-3">
-                {item.type === 'weapon' && <span className="text-red-400 font-mono bg-red-950/30 px-2 py-1 rounded">ATK: {item.stats?.attack}</span>}
-                {item.type === 'armor' && <span className="text-blue-400 font-mono bg-blue-950/30 px-2 py-1 rounded">DEF: {item.stats?.defense}</span>}
-                <span className="text-amber-500 font-mono bg-amber-950/30 px-2 py-1 rounded">Val: {item.value}g</span>
-                <span className="text-stone-500 font-mono bg-stone-950 px-2 py-1 rounded">Lvl: {item.level_req}</span>
+                {item.slot === 'weapon' && <span className="text-red-400 font-mono bg-red-950/30 px-2 py-1 rounded">ATK: {item.bonus_damage}</span>}
+                {item.type === 'equipment' && item.slot !== 'weapon' && <span className="text-blue-400 font-mono bg-blue-950/30 px-2 py-1 rounded">DEF: {item.bonus_defense}</span>}
+                <span className="text-amber-500 font-mono bg-amber-950/30 px-2 py-1 rounded">Val: {item.gold_cost}g</span>
+                <span className="text-stone-500 font-mono bg-stone-950 px-2 py-1 rounded">Lvl: {item.required_level}</span>
               </div>
             </div>
           ))}
