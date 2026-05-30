@@ -31,7 +31,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export type ItemType = 'equipment' | 'quest_item' | 'consumable' | 'bag';
+export type ItemType = 'equipment' | 'quest_item' | 'consumable' | 'bag' | 'material';
 export type ItemSlot = 'head' | 'body' | 'hands' | 'bracers' | 'legs' | 'feet' | 'cape' | 'necklace' | 'ring' | 'weapon' | 'none';
 export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 

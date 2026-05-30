@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapPin, Skull, TreePine, Mountain, Castle, ShieldAlert, BookOpen, Landmark } from 'lucide-react';
+import { MapPin, Skull, TreePine, Mountain, Castle, ShieldAlert, BookOpen, Landmark, Hammer, Beer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 
@@ -58,7 +58,7 @@ export default function TravelHub() {
       </div>
 
       {/* Quick Access */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <button 
           onClick={() => handleTravel('bank', '/play/bank')}
           className="flex items-center gap-4 p-4 bg-stone-900 border border-stone-800 hover:border-amber-700 rounded group transition-all text-left"
@@ -82,6 +82,32 @@ export default function TravelHub() {
           <div className="flex flex-col text-left">
             <span className="font-cinzel font-bold text-amber-500 group-hover:text-amber-400">Main Story</span>
             <span className="text-xs text-stone-400">Continue the epic campaign.</span>
+          </div>
+        </button>
+
+        <button 
+          onClick={() => handleTravel('forge', '/play/forge')}
+          className="flex items-center gap-4 p-4 bg-stone-900 border border-stone-800 hover:border-orange-700 rounded group transition-all text-left"
+        >
+          <div className="p-3 bg-stone-950 rounded group-hover:bg-orange-900/30 transition-colors">
+            <Hammer className="text-stone-500 group-hover:text-orange-500" size={24} />
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="font-cinzel font-bold text-stone-200">The Forge</span>
+            <span className="text-xs text-stone-400">Craft powerful gear.</span>
+          </div>
+        </button>
+
+        <button 
+          onClick={() => handleTravel('tavern', '/play/tavern')}
+          className="flex items-center gap-4 p-4 bg-stone-900 border border-stone-800 hover:border-amber-700 rounded group transition-all text-left"
+        >
+          <div className="p-3 bg-stone-950 rounded group-hover:bg-amber-900/30 transition-colors">
+            <Beer className="text-stone-500 group-hover:text-amber-500" size={24} />
+          </div>
+          <div className="flex flex-col text-left">
+            <span className="font-cinzel font-bold text-stone-200">The Tavern</span>
+            <span className="text-xs text-stone-400">Rest and recover.</span>
           </div>
         </button>
       </div>

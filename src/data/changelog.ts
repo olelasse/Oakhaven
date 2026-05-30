@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.3.0',
+    date: 'May 2026',
+    title: 'Industry & Rest',
+    changes: [
+      { category: 'feature', description: 'The Forge: Gather enemy drop materials like Wolf Pelts and Iron Ore to craft powerful equipment.' },
+      { category: 'feature', description: 'The Tavern: The Drunken Boar is open! Rent a premium suite, buy a drink, or listen to a sponsor to instantly recover HP & Energy.' },
+      { category: 'system', description: 'Enemy Loot Tables: Enemies now drop specific crafting materials.' },
+      { category: 'fix', description: 'Resolved strict type compilation errors for production builds.' }
+    ]
+  },
+  {
     version: 'v0.2.0',
     date: 'May 2026',
     title: 'The Great Expedition',

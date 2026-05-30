@@ -14,6 +14,8 @@ import Blacksmith from './pages/Blacksmith';
 import Marketplace from './pages/Marketplace';
 import AuctionHouse from './pages/AuctionHouse';
 import Bank from './pages/Bank';
+import Forge from './pages/Forge';
+import Tavern from './pages/Tavern';
 import CharacterCreation from './pages/CharacterCreation';
 import Combat from './pages/Combat';
 import QuestBriefing from './pages/QuestBriefing';
@@ -66,6 +68,8 @@ function App() {
             <Route path="marketplace" element={<Marketplace />} />
             <Route path="auction-house" element={<AuctionHouse />} />
             <Route path="bank" element={<Bank />} />
+            <Route path="forge" element={<Forge />} />
+            <Route path="tavern" element={<Tavern />} />
             <Route path="compendium" element={<Compendium />} />
             <Route path="*" element={<NotFound />} />
           </Route>

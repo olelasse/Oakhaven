@@ -22,6 +22,7 @@ interface GameState {
   toggleEquipItem: (inventoryId: string) => { success: boolean, message: string };
   getAttackDamage: () => number;
   addItemToInventory: (itemId: string, quantity: number) => Promise<boolean>;
+  removeItemFromInventory: (itemId: string, quantity: number) => Promise<boolean>;
   incrementDailyQuest: () => void;
   incrementCampaignProgress: () => void;
   completeTutorial: (grantReward: boolean) => Promise<void>;
@@ -31,6 +32,7 @@ interface GameState {
   transferItem: (inventoryId: string, toBank: boolean, amount: number) => Promise<void>;
   buyMarketplaceItem: (itemId: string, cost: number) => Promise<{ success: boolean, message: string }>;
   buyDailyDeal: (itemId: string, cost: number) => Promise<{ success: boolean, message: string }>;
+  spendPremiumTokens: (amount: number) => Promise<boolean>;
 }
 
 const GameContext = createContext<GameState | undefined>(undefined);
@@ -228,14 +230,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
     supabase.from('action_logs').insert([{ profile_id: profile.id, message, type }]).then();
   };
 
-  const addGold = (amount: number) => {
-    if (!profile) return;
-    updateProfile({ gold: profile.gold + amount });
-  };
-
   const removeGold = (amount: number) => {
     if (!profile) return;
     updateProfile({ gold: Math.max(0, profile.gold - amount) });
+  };
+
+  const spendPremiumTokens = async (amount: number) => {
+    if (!profile || profile.premium_tokens < amount) return false;
+    
+    const newTokens = profile.premium_tokens - amount;
+    // use optimistic UI
+    setProfile({ ...profile, premium_tokens: newTokens });
+    const { error } = await supabase.from('profiles').update({ premium_tokens: newTokens }).eq('id', profile.id);
+    return !error;
+  };
+
+  const addGold = (amount: number) => {
+    if (!profile) return;
+    updateProfile({ gold: profile.gold + amount });
   };
 
   const depositGold = (amount: number) => {
@@ -647,6 +659,34 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const removeItemFromInventory = async (itemId: string, quantity: number): Promise<boolean> => {
+    // Collect all unbanked instances of this item
+    const existingItems = inventory.filter(i => i.item_id === itemId && !i.is_banked);
+    const totalAvailable = existingItems.reduce((acc, curr) => acc + curr.quantity, 0);
+
+    if (totalAvailable < quantity) return false;
+
+    let remainingToRemove = quantity;
+    
+    // Sort by quantity so we remove from smaller stacks first or whatever, doesn't matter too much
+    for (const invItem of existingItems) {
+      if (remainingToRemove <= 0) break;
+
+      if (invItem.quantity <= remainingToRemove) {
+        remainingToRemove -= invItem.quantity;
+        setInventory(prev => prev.filter(i => i.id !== invItem.id));
+        await supabase.from('inventory').delete().eq('id', invItem.id);
+      } else {
+        const newQuantity = invItem.quantity - remainingToRemove;
+        remainingToRemove = 0;
+        setInventory(prev => prev.map(i => i.id === invItem.id ? { ...i, quantity: newQuantity } : i));
+        await supabase.from('inventory').update({ quantity: newQuantity }).eq('id', invItem.id);
+      }
+    }
+
+    return true;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center text-amber-500 font-cinzel text-xl">
@@ -679,6 +719,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       toggleEquipItem,
       getAttackDamage,
       addItemToInventory,
+      removeItemFromInventory,
       incrementDailyQuest,
       incrementCampaignProgress,
       completeTutorial,
@@ -687,7 +728,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       withdrawGold, 
       transferItem, 
       buyMarketplaceItem, 
-      buyDailyDeal 
+      buyDailyDeal,
+      spendPremiumTokens
     }}>
       {children}
     </GameContext.Provider>
